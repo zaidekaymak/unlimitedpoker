@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS rooms (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    admin_id   TEXT NOT NULL,
+    revealed   BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
