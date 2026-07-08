@@ -23,11 +23,6 @@ type createRoomResponse struct {
 
 func CreateRoom(h *hub.Hub, db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
 		var req createRoomRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" || req.AdminName == "" {
 			http.Error(w, "invalid request body", http.StatusBadRequest)

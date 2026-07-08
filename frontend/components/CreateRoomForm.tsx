@@ -40,7 +40,7 @@ export function CreateRoomForm() {
           value={roomName}
           onChange={(e) => setRoomName(e.target.value)}
           placeholder="Sprint 42 Planning"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
           required
         />
       </div>
@@ -51,7 +51,7 @@ export function CreateRoomForm() {
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
           placeholder="Zaide"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
           required
         />
       </div>
