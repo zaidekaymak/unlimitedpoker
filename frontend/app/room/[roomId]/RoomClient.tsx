@@ -41,13 +41,13 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-gray-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">{roomName}</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <CopyLinkButton roomId={roomId} />
-          <ConnectionBadge status={status} />
+      <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{roomName}</h1>
+          <div className="flex items-center gap-3">
+            <CopyLinkButton roomId={roomId} />
+            <ConnectionBadge status={status} />
+          </div>
         </div>
       </header>
 
