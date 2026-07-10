@@ -98,6 +98,10 @@ func SpawnSSEClient(h *Hub, w http.ResponseWriter, r *http.Request, roomID, play
 		key:     "_pending_sse_" + playerID,
 	}
 
+	// Flush immediately so Railway/nginx proxy doesn't buffer the response
+	fmt.Fprintf(w, ": connected\n\n")
+	flusher.Flush()
+
 	h.register <- c
 
 	// Dispatch join on behalf of the SSE client
