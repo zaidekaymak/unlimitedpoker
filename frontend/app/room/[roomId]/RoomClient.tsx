@@ -87,7 +87,7 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
             </div>
           )}
 
-          {isAdmin && room && (
+          {room && (
             <AdminControls
               revealed={room.revealed}
               onReveal={sendReveal}

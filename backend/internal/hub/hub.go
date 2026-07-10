@@ -265,11 +265,6 @@ func (h *Hub) handleAction(a action) {
 		}
 
 		room.mu.Lock()
-		if room.AdminID != p.PlayerID {
-			room.mu.Unlock()
-			c.sendJSON(EventError, ErrorPayload{Message: "only admin can reveal"})
-			return
-		}
 		room.Revealed = true
 		votes := make(map[string]string, len(room.Votes))
 		for k, v := range room.Votes {
@@ -298,11 +293,6 @@ func (h *Hub) handleAction(a action) {
 		}
 
 		room.mu.Lock()
-		if room.AdminID != p.PlayerID {
-			room.mu.Unlock()
-			c.sendJSON(EventError, ErrorPayload{Message: "only admin can reset"})
-			return
-		}
 		room.Revealed = false
 		room.Votes = nil
 		for _, player := range room.Players {
