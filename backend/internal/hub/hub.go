@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zaide/unlimitedpoker/backend/internal/db/queries"
@@ -21,13 +22,15 @@ type createRoomCmd struct {
 }
 
 type Hub struct {
-	rooms      map[string]*Room
-	clients    map[string]map[string]IClient // roomID → key → IClient
-	broadcast  chan action
-	register   chan IClient
-	unregister chan IClient
-	createRoom chan createRoomCmd
-	db         *pgxpool.Pool
+	rooms       map[string]*Room
+	clients     map[string]map[string]IClient // roomID → key → IClient
+	broadcast   chan action
+	register    chan IClient
+	unregister  chan IClient
+	createRoom  chan createRoomCmd
+	db          *pgxpool.Pool
+	snapshots   map[string][]byte
+	snapshotsMu sync.RWMutex
 }
 
 func NewHub(db *pgxpool.Pool) *Hub {
@@ -39,7 +42,32 @@ func NewHub(db *pgxpool.Pool) *Hub {
 		unregister: make(chan IClient, 32),
 		createRoom: make(chan createRoomCmd, 32),
 		db:         db,
+		snapshots:  make(map[string][]byte),
 	}
+}
+
+// updateSnapshot caches a JSON snapshot of the room. Must be called from the hub goroutine.
+func (h *Hub) updateSnapshot(roomID string) {
+	room, ok := h.rooms[roomID]
+	if !ok {
+		return
+	}
+	snap := room.Snapshot()
+	data, err := json.Marshal(snap)
+	if err != nil {
+		return
+	}
+	h.snapshotsMu.Lock()
+	h.snapshots[roomID] = data
+	h.snapshotsMu.Unlock()
+}
+
+// GetSnapshot returns the latest cached room snapshot. Safe to call from any goroutine.
+func (h *Hub) GetSnapshot(roomID string) []byte {
+	h.snapshotsMu.RLock()
+	data := h.snapshots[roomID]
+	h.snapshotsMu.RUnlock()
+	return data
 }
 
 // CreateRoom schedules room creation on the hub goroutine (safe from any goroutine).
@@ -151,6 +179,7 @@ func (h *Hub) handleAction(a action) {
 		room.Players[p.PlayerID] = player
 		room.mu.Unlock()
 
+		h.updateSnapshot(c.getRoomID())
 		c.sendJSON(EventRoomState, room.Snapshot())
 		h.broadcastToRoomExcept(c.getRoomID(), p.PlayerID, EventPlayerJoined, playerSnapshot{
 			ID:      player.ID,
@@ -212,6 +241,7 @@ func (h *Hub) handleAction(a action) {
 			}
 		}()
 
+		h.updateSnapshot(c.getRoomID())
 		h.broadcastToRoom(c.getRoomID(), EventVoted, VotedPayload{PlayerID: p.PlayerID})
 
 		if allVoted {
@@ -253,6 +283,7 @@ func (h *Hub) handleAction(a action) {
 			}
 		}()
 
+		h.updateSnapshot(c.getRoomID())
 		h.broadcastToRoom(c.getRoomID(), EventRevealed, RevealedPayload{Votes: votes})
 
 	case EventReset:
@@ -288,6 +319,7 @@ func (h *Hub) handleAction(a action) {
 			}
 		}()
 
+		h.updateSnapshot(c.getRoomID())
 		h.broadcastToRoom(c.getRoomID(), EventResetDone, nil)
 
 	case EventPing:

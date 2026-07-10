@@ -65,6 +65,19 @@ func GetRoom(db *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
+func GetRoomSnapshot(h *hub.Hub) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		roomID := r.PathValue("roomId")
+		data := h.GetSnapshot(roomID)
+		if data == nil {
+			http.Error(w, "room not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+	}
+}
+
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func nanoid(n int) string {

@@ -25,13 +25,13 @@ export function usePokerRoom(
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
 
   const wsRef = useRef<WebSocket | null>(null);
-  const esRef = useRef<EventSource | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const unmounted = useRef(false);
   const wsOpenedRef = useRef(false);
-  const useSseRef = useRef(false);
+  const usePollRef = useRef(false);
 
   function handleMessage(msg: WSMessage) {
     switch (msg.event) {
@@ -101,36 +101,32 @@ export function usePokerRoom(
     }
   }
 
-  const connectSSE = useCallback(() => {
+  const startPolling = useCallback(() => {
     if (unmounted.current) return;
-    setStatus("connecting");
 
-    const url = getSSEUrl(roomId, playerId, playerName);
-    const es = new EventSource(url);
-    esRef.current = es;
+    // Register player via join action
+    fetch(getActionUrl(roomId, playerId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "join", payload: { playerId, playerName } }),
+    }).catch(() => {});
 
-    es.onopen = () => {
-      setStatus("open");
-      reconnectAttempts.current = 0;
-    };
-
-    es.onmessage = (e) => {
+    const poll = async () => {
+      if (unmounted.current) return;
       try {
-        handleMessage(JSON.parse(e.data));
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/rooms/${roomId}/snapshot`);
+        if (res.ok) {
+          const snap = await res.json();
+          setRoom(snap);
+          setStatus("open");
+        }
       } catch {
-        // ignore parse errors
+        setStatus("error");
       }
     };
 
-    es.onerror = () => {
-      if (unmounted.current) return;
-      setStatus("error");
-      es.close();
-      esRef.current = null;
-      const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
-      reconnectAttempts.current += 1;
-      reconnectTimer.current = setTimeout(connectSSE, delay);
-    };
+    poll();
+    pollTimer.current = setInterval(poll, 2000);
   }, [roomId, playerId, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const connect = useCallback(() => {
@@ -138,8 +134,8 @@ export function usePokerRoom(
 
     // If we already know SSE is required (e.g. after a previous WS failure),
     // skip straight to SSE.
-    if (useSseRef.current) {
-      connectSSE();
+    if (usePollRef.current) {
+      startPolling();
       return;
     }
 
@@ -179,10 +175,10 @@ export function usePokerRoom(
 
     ws.onerror = () => {
       if (!wsOpenedRef.current) {
-        // WebSocket was blocked before it could open — fall back to SSE
-        useSseRef.current = true;
+        // WebSocket was blocked before it could open — fall back to polling
+        usePollRef.current = true;
         ws.close();
-        connectSSE();
+        startPolling();
         return;
       }
       setStatus("error");
@@ -190,8 +186,8 @@ export function usePokerRoom(
 
     ws.onclose = () => {
       if (unmounted.current) return;
-      // If SSE took over, ignore the WS close event
-      if (useSseRef.current) return;
+      // If polling took over, ignore the WS close event
+      if (usePollRef.current) return;
 
       setStatus("closed");
       if (pingTimer.current) clearInterval(pingTimer.current);
@@ -201,11 +197,11 @@ export function usePokerRoom(
       reconnectAttempts.current += 1;
       reconnectTimer.current = setTimeout(connect, delay);
     };
-  }, [roomId, playerId, playerName, connectSSE]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roomId, playerId, playerName, startPolling]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback(
     (event: string, payload: unknown) => {
-      if (useSseRef.current) {
+      if (usePollRef.current) {
         fetch(getActionUrl(roomId, playerId), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -226,7 +222,7 @@ export function usePokerRoom(
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (pingTimer.current) clearInterval(pingTimer.current);
       wsRef.current?.close();
-      esRef.current?.close();
+      if (pollTimer.current) clearInterval(pollTimer.current);
     };
   }, [connect]);
 
