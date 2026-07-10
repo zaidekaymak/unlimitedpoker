@@ -28,7 +28,11 @@ export function PlayerList({ players, votes, revealed }: PlayerListProps) {
             </span>
           </div>
           <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold">
-            {player.hasVoted || revealed ? (
+            {revealed && votes?.[player.id] ? (
+              <span className="bg-indigo-100 text-indigo-700 w-full h-full rounded-lg flex items-center justify-center">
+                {votes[player.id]}
+              </span>
+            ) : player.hasVoted ? (
               <span className="bg-green-100 text-green-600 w-full h-full rounded-lg flex items-center justify-center">
                 ✓
               </span>
