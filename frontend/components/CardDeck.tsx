@@ -19,17 +19,15 @@ export function CardDeck({ selectedValue, hasVoted, revealed, onVote }: CardDeck
         return (
           <button
             key={value}
-            onClick={() => !hasVoted && onVote(value)}
-            disabled={hasVoted}
+            onClick={() => onVote(value)}
             className={`
               w-16 h-24 rounded-xl border-2 text-xl font-bold
               flex items-center justify-center
-              transition-all duration-150 select-none
+              transition-all duration-150 select-none cursor-pointer
               ${isSelected
                 ? "border-indigo-500 bg-indigo-100 text-indigo-700 scale-110 shadow-lg"
                 : "border-gray-300 bg-white text-gray-700 hover:border-indigo-400 hover:scale-105"
               }
-              ${hasVoted ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
             `}
           >
             {value}
