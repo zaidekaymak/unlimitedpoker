@@ -34,6 +34,7 @@ func main() {
 	mux.HandleFunc("POST /rooms", handlers.CreateRoom(h, pool))
 	mux.HandleFunc("GET /rooms/{roomId}", handlers.GetRoom(pool))
 	mux.HandleFunc("GET /rooms/{roomId}/snapshot", handlers.GetRoomSnapshot(h))
+	mux.HandleFunc("GET /rooms/{roomId}/poll", handlers.PollRoom(h))
 	mux.HandleFunc("GET /ws/{roomId}", handlers.ServeWS(h))
 	mux.HandleFunc("GET /sse/{roomId}", handlers.ServeSSE(h))
 	mux.HandleFunc("POST /rooms/{roomId}/action", handlers.HandleAction(h))

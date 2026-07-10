@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zaide/unlimitedpoker/backend/internal/db/queries"
@@ -68,6 +70,35 @@ func GetRoom(db *pgxpool.Pool) http.HandlerFunc {
 func GetRoomSnapshot(h *hub.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		roomID := r.PathValue("roomId")
+		data := h.GetSnapshot(roomID)
+		if data == nil {
+			http.Error(w, "room not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+	}
+}
+
+func PollRoom(h *hub.Hub) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		roomID := r.PathValue("roomId")
+
+		// First request: return immediately if snapshot exists
+		if r.URL.Query().Get("wait") != "1" {
+			data := h.GetSnapshot(roomID)
+			if data != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(data)
+				return
+			}
+		}
+
+		// Wait up to 28s for next update
+		ctx, cancel := context.WithTimeout(r.Context(), 28*time.Second)
+		defer cancel()
+		h.WaitForUpdate(ctx, roomID)
+
 		data := h.GetSnapshot(roomID)
 		if data == nil {
 			http.Error(w, "room not found", http.StatusNotFound)

@@ -104,29 +104,36 @@ export function usePokerRoom(
   const startPolling = useCallback(() => {
     if (unmounted.current) return;
 
-    // Register player via join action
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+    // Register player via join action, then immediately start long polling
     fetch(getActionUrl(roomId, playerId), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event: "join", payload: { playerId, playerName } }),
-    }).catch(() => {});
+    })
+      .catch(() => {})
+      .finally(() => {
+        if (!unmounted.current) longPoll(false);
+      });
 
-    const poll = async () => {
+    async function longPoll(wait: boolean) {
       if (unmounted.current) return;
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/rooms/${roomId}/snapshot`);
+        const url = `${apiBase}/rooms/${roomId}/poll${wait ? "?wait=1" : ""}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(32000) });
         if (res.ok) {
           const snap = await res.json();
           setRoom(snap);
           setStatus("open");
         }
       } catch {
+        if (unmounted.current) return;
         setStatus("error");
+        await new Promise((r) => { pollTimer.current = setTimeout(r, 2000); });
       }
-    };
-
-    poll();
-    pollTimer.current = setInterval(poll, 2000);
+      longPoll(true);
+    }
   }, [roomId, playerId, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const connect = useCallback(() => {

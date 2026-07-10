@@ -22,15 +22,17 @@ type createRoomCmd struct {
 }
 
 type Hub struct {
-	rooms       map[string]*Room
-	clients     map[string]map[string]IClient // roomID → key → IClient
-	broadcast   chan action
-	register    chan IClient
-	unregister  chan IClient
-	createRoom  chan createRoomCmd
-	db          *pgxpool.Pool
-	snapshots   map[string][]byte
-	snapshotsMu sync.RWMutex
+	rooms        map[string]*Room
+	clients      map[string]map[string]IClient // roomID → key → IClient
+	broadcast    chan action
+	register     chan IClient
+	unregister   chan IClient
+	createRoom   chan createRoomCmd
+	db           *pgxpool.Pool
+	snapshots    map[string][]byte
+	snapshotsMu  sync.RWMutex
+	notifiers    map[string]chan struct{} // roomID → closed on each update
+	notifiersMu  sync.Mutex
 }
 
 func NewHub(db *pgxpool.Pool) *Hub {
@@ -43,6 +45,7 @@ func NewHub(db *pgxpool.Pool) *Hub {
 		createRoom: make(chan createRoomCmd, 32),
 		db:         db,
 		snapshots:  make(map[string][]byte),
+		notifiers:  make(map[string]chan struct{}),
 	}
 }
 
@@ -60,6 +63,14 @@ func (h *Hub) updateSnapshot(roomID string) {
 	h.snapshotsMu.Lock()
 	h.snapshots[roomID] = data
 	h.snapshotsMu.Unlock()
+
+	// Notify long-poll waiters
+	h.notifiersMu.Lock()
+	if ch, ok := h.notifiers[roomID]; ok {
+		close(ch)
+		h.notifiers[roomID] = make(chan struct{})
+	}
+	h.notifiersMu.Unlock()
 }
 
 // GetSnapshot returns the latest cached room snapshot. Safe to call from any goroutine.
@@ -68,6 +79,21 @@ func (h *Hub) GetSnapshot(roomID string) []byte {
 	data := h.snapshots[roomID]
 	h.snapshotsMu.RUnlock()
 	return data
+}
+
+// WaitForUpdate blocks until the room state changes or ctx is done.
+func (h *Hub) WaitForUpdate(ctx context.Context, roomID string) {
+	h.notifiersMu.Lock()
+	if _, ok := h.notifiers[roomID]; !ok {
+		h.notifiers[roomID] = make(chan struct{})
+	}
+	ch := h.notifiers[roomID]
+	h.notifiersMu.Unlock()
+
+	select {
+	case <-ch:
+	case <-ctx.Done():
+	}
 }
 
 // CreateRoom schedules room creation on the hub goroutine (safe from any goroutine).
