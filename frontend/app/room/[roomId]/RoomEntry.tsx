@@ -7,24 +7,23 @@ import { JoinViaLinkForm } from "./JoinViaLinkForm";
 interface Props {
   roomId: string;
   roomName: string;
-  urlName?: string;
-  urlPid?: string;
 }
 
-export function RoomEntry({ roomId, roomName, urlName, urlPid }: Props) {
+export function RoomEntry({ roomId, roomName }: Props) {
   const [ready, setReady] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
+  const [session, setSession] = useState<{ pid: string; name: string } | null>(null);
 
   useEffect(() => {
-    const storedPid = localStorage.getItem(`player_${roomId}`);
-    setIsOwner(!!urlPid && storedPid === urlPid);
+    const pid = localStorage.getItem(`player_${roomId}`);
+    const name = localStorage.getItem(`playerName_${roomId}`);
+    if (pid && name) setSession({ pid, name });
     setReady(true);
-  }, [roomId, urlPid]);
+  }, [roomId]);
 
   if (!ready) return null;
 
-  if (isOwner && urlName && urlPid) {
-    return <RoomClient roomId={roomId} roomName={roomName} playerId={urlPid} playerName={urlName} />;
+  if (session) {
+    return <RoomClient roomId={roomId} roomName={roomName} playerId={session.pid} playerName={session.name} />;
   }
 
   return <JoinViaLinkForm roomId={roomId} roomName={roomName} />;

@@ -22,7 +22,8 @@ export function JoinViaLinkForm({ roomId, roomName }: Props) {
     const playerId = nanoid(12);
     localStorage.setItem("playerName", playerName.trim());
     localStorage.setItem(`player_${roomId}`, playerId);
-    router.push(`/room/${roomId}?name=${encodeURIComponent(playerName.trim())}&pid=${playerId}`);
+    localStorage.setItem(`playerName_${roomId}`, playerName.trim());
+    router.push(`/room/${roomId}`);
   }
 
   return (

@@ -18,7 +18,8 @@ export function JoinRoomForm() {
     const playerId = nanoid(12);
     localStorage.setItem("playerName", playerName.trim());
     localStorage.setItem(`player_${roomId.trim()}`, playerId);
-    router.push(`/room/${roomId.trim()}?name=${encodeURIComponent(playerName.trim())}&pid=${playerId}`);
+    localStorage.setItem(`playerName_${roomId.trim()}`, playerName.trim());
+    router.push(`/room/${roomId.trim()}`);
   }
 
   return (
