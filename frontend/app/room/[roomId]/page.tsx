@@ -1,7 +1,6 @@
 import { getRoom } from "@/lib/api";
 import { notFound } from "next/navigation";
-import { RoomClient } from "./RoomClient";
-import { JoinViaLinkForm } from "./JoinViaLinkForm";
+import { RoomEntry } from "./RoomEntry";
 
 interface Props {
   params: Promise<{ roomId: string }>;
@@ -15,16 +14,12 @@ export default async function RoomPage({ params, searchParams }: Props) {
   const roomData = await getRoom(roomId);
   if (!roomData) notFound();
 
-  if (!name || !pid) {
-    return <JoinViaLinkForm roomId={roomId} roomName={roomData.name} />;
-  }
-
   return (
-    <RoomClient
+    <RoomEntry
       roomId={roomId}
       roomName={roomData.name}
-      playerId={pid}
-      playerName={name}
+      urlName={name}
+      urlPid={pid}
     />
   );
 }
