@@ -108,3 +108,12 @@ func (c *Client) sendJSON(event string, payload any) {
 		log.Printf("dropping message for slow client %s", c.playerID)
 	}
 }
+
+// IClient implementation
+
+func (c *Client) getRoomID() string        { return c.roomID }
+func (c *Client) getPlayerID() string      { return c.playerID }
+func (c *Client) setPlayerID(id string)    { c.playerID = id }
+func (c *Client) disconnect()              { close(c.send) }
+func (c *Client) getSend() chan []byte     { return c.send }
+func (c *Client) pendingKey() string       { return "_pending_ws_" + c.conn.RemoteAddr().String() }

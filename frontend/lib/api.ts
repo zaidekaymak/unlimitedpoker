@@ -30,3 +30,11 @@ export function getWSUrl(roomId: string): string {
       : "ws://localhost:8080");
   return `${wsBase}/ws/${roomId}`;
 }
+
+export function getSSEUrl(roomId: string, playerId: string, playerName: string): string {
+  return `${API_URL}/sse/${roomId}?playerId=${encodeURIComponent(playerId)}&playerName=${encodeURIComponent(playerName)}`;
+}
+
+export function getActionUrl(roomId: string, playerId: string): string {
+  return `${API_URL}/rooms/${roomId}/action?playerId=${encodeURIComponent(playerId)}`;
+}

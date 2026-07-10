@@ -10,7 +10,7 @@ import (
 )
 
 type action struct {
-	client *Client
+	client IClient
 	msg    IncomingMessage
 }
 
@@ -22,10 +22,10 @@ type createRoomCmd struct {
 
 type Hub struct {
 	rooms      map[string]*Room
-	clients    map[string]map[string]*Client // roomID → playerID → *Client
+	clients    map[string]map[string]IClient // roomID → key → IClient
 	broadcast  chan action
-	register   chan *Client
-	unregister chan *Client
+	register   chan IClient
+	unregister chan IClient
 	createRoom chan createRoomCmd
 	db         *pgxpool.Pool
 }
@@ -33,10 +33,10 @@ type Hub struct {
 func NewHub(db *pgxpool.Pool) *Hub {
 	return &Hub{
 		rooms:      make(map[string]*Room),
-		clients:    make(map[string]map[string]*Client),
+		clients:    make(map[string]map[string]IClient),
 		broadcast:  make(chan action, 256),
-		register:   make(chan *Client, 32),
-		unregister: make(chan *Client, 32),
+		register:   make(chan IClient, 32),
+		unregister: make(chan IClient, 32),
 		createRoom: make(chan createRoomCmd, 32),
 		db:         db,
 	}
@@ -47,35 +47,43 @@ func (h *Hub) CreateRoom(id, name, adminID string) {
 	h.createRoom <- createRoomCmd{id: id, name: name, adminID: adminID}
 }
 
+// DispatchHTTPAction sends an action to the hub from an HTTP handler.
+// A noopClient is used as the sender; the join event must not be sent via
+// this path (only SSE connect handles join).
+func (h *Hub) DispatchHTTPAction(roomID, playerID string, msg IncomingMessage) {
+	c := &noopClient{rID: roomID, pID: playerID}
+	h.broadcast <- action{client: c, msg: msg}
+}
+
 func (h *Hub) Run() {
 	for {
 		select {
 		case cmd := <-h.createRoom:
 			if _, ok := h.rooms[cmd.id]; !ok {
 				h.rooms[cmd.id] = NewRoom(cmd.id, cmd.name, cmd.adminID)
-				h.clients[cmd.id] = make(map[string]*Client)
+				h.clients[cmd.id] = make(map[string]IClient)
 			}
 
 		case c := <-h.register:
-			if h.clients[c.roomID] == nil {
-				h.clients[c.roomID] = make(map[string]*Client)
+			if h.clients[c.getRoomID()] == nil {
+				h.clients[c.getRoomID()] = make(map[string]IClient)
 			}
-			h.clients[c.roomID]["_pending_"+c.conn.RemoteAddr().String()] = c
+			h.clients[c.getRoomID()][c.pendingKey()] = c
 
 		case c := <-h.unregister:
-			if roomClients, ok := h.clients[c.roomID]; ok {
+			if roomClients, ok := h.clients[c.getRoomID()]; ok {
 				for key, client := range roomClients {
 					if client == c {
 						delete(roomClients, key)
 						break
 					}
 				}
-				close(c.send)
-				if room, ok := h.rooms[c.roomID]; ok && c.playerID != "" {
+				c.disconnect()
+				if room, ok := h.rooms[c.getRoomID()]; ok && c.getPlayerID() != "" {
 					room.mu.Lock()
-					delete(room.Players, c.playerID)
+					delete(room.Players, c.getPlayerID())
 					room.mu.Unlock()
-					h.broadcastToRoom(c.roomID, EventPlayerLeft, PlayerLeftPayload{PlayerID: c.playerID})
+					h.broadcastToRoom(c.getRoomID(), EventPlayerLeft, PlayerLeftPayload{PlayerID: c.getPlayerID()})
 				}
 			}
 
@@ -97,22 +105,22 @@ func (h *Hub) handleAction(a action) {
 			return
 		}
 
-		room, ok := h.rooms[c.roomID]
+		room, ok := h.rooms[c.getRoomID()]
 		if !ok {
 			// Room not in memory — load from DB (server restart recovery)
-			row, err := queries.GetRoom(context.Background(), h.db, c.roomID)
+			row, err := queries.GetRoom(context.Background(), h.db, c.getRoomID())
 			if err != nil {
 				c.sendJSON(EventError, ErrorPayload{Message: "room not found"})
 				return
 			}
 			room = NewRoom(row.ID, row.Name, row.AdminID)
-			h.rooms[c.roomID] = room
-			h.clients[c.roomID] = make(map[string]*Client)
+			h.rooms[c.getRoomID()] = room
+			h.clients[c.getRoomID()] = make(map[string]IClient)
 
 			// Restore votes from DB if revealed
 			if row.Revealed {
 				room.Revealed = true
-				dbVotes, err := queries.GetVotesByRoom(context.Background(), h.db, c.roomID)
+				dbVotes, err := queries.GetVotesByRoom(context.Background(), h.db, c.getRoomID())
 				if err == nil {
 					room.Votes = make(map[string]string, len(dbVotes))
 					for _, v := range dbVotes {
@@ -123,7 +131,7 @@ func (h *Hub) handleAction(a action) {
 		}
 
 		// Re-key client from pending to playerID
-		if roomClients, ok := h.clients[c.roomID]; ok {
+		if roomClients, ok := h.clients[c.getRoomID()]; ok {
 			for key, client := range roomClients {
 				if client == c {
 					delete(roomClients, key)
@@ -132,7 +140,7 @@ func (h *Hub) handleAction(a action) {
 			}
 			roomClients[p.PlayerID] = c
 		}
-		c.playerID = p.PlayerID
+		c.setPlayerID(p.PlayerID)
 
 		room.mu.Lock()
 		player := &Player{
@@ -144,7 +152,7 @@ func (h *Hub) handleAction(a action) {
 		room.mu.Unlock()
 
 		c.sendJSON(EventRoomState, room.Snapshot())
-		h.broadcastToRoomExcept(c.roomID, p.PlayerID, EventPlayerJoined, playerSnapshot{
+		h.broadcastToRoomExcept(c.getRoomID(), p.PlayerID, EventPlayerJoined, playerSnapshot{
 			ID:      player.ID,
 			Name:    player.Name,
 			IsAdmin: player.IsAdmin,
@@ -157,7 +165,7 @@ func (h *Hub) handleAction(a action) {
 			return
 		}
 
-		room, ok := h.rooms[c.roomID]
+		room, ok := h.rooms[c.getRoomID()]
 		if !ok {
 			return
 		}
@@ -195,7 +203,7 @@ func (h *Hub) handleAction(a action) {
 		room.mu.Unlock()
 
 		go func() {
-			if err := queries.SaveVote(context.Background(), h.db, c.roomID, queries.VoteRow{
+			if err := queries.SaveVote(context.Background(), h.db, c.getRoomID(), queries.VoteRow{
 				PlayerID:   p.PlayerID,
 				PlayerName: playerName,
 				Value:      p.Value,
@@ -204,15 +212,15 @@ func (h *Hub) handleAction(a action) {
 			}
 		}()
 
-		h.broadcastToRoom(c.roomID, EventVoted, VotedPayload{PlayerID: p.PlayerID})
+		h.broadcastToRoom(c.getRoomID(), EventVoted, VotedPayload{PlayerID: p.PlayerID})
 
 		if allVoted {
 			go func() {
-				if err := queries.SetRevealed(context.Background(), h.db, c.roomID, true); err != nil {
+				if err := queries.SetRevealed(context.Background(), h.db, c.getRoomID(), true); err != nil {
 					log.Printf("set revealed: %v", err)
 				}
 			}()
-			h.broadcastToRoom(c.roomID, EventRevealed, RevealedPayload{Votes: revealVotes})
+			h.broadcastToRoom(c.getRoomID(), EventRevealed, RevealedPayload{Votes: revealVotes})
 		}
 
 	case EventReveal:
@@ -221,7 +229,7 @@ func (h *Hub) handleAction(a action) {
 			return
 		}
 
-		room, ok := h.rooms[c.roomID]
+		room, ok := h.rooms[c.getRoomID()]
 		if !ok {
 			return
 		}
@@ -240,12 +248,12 @@ func (h *Hub) handleAction(a action) {
 		room.mu.Unlock()
 
 		go func() {
-			if err := queries.SetRevealed(context.Background(), h.db, c.roomID, true); err != nil {
+			if err := queries.SetRevealed(context.Background(), h.db, c.getRoomID(), true); err != nil {
 				log.Printf("set revealed: %v", err)
 			}
 		}()
 
-		h.broadcastToRoom(c.roomID, EventRevealed, RevealedPayload{Votes: votes})
+		h.broadcastToRoom(c.getRoomID(), EventRevealed, RevealedPayload{Votes: votes})
 
 	case EventReset:
 		var p ResetPayload
@@ -253,7 +261,7 @@ func (h *Hub) handleAction(a action) {
 			return
 		}
 
-		room, ok := h.rooms[c.roomID]
+		room, ok := h.rooms[c.getRoomID()]
 		if !ok {
 			return
 		}
@@ -272,15 +280,15 @@ func (h *Hub) handleAction(a action) {
 		room.mu.Unlock()
 
 		go func() {
-			if err := queries.ClearVotes(context.Background(), h.db, c.roomID); err != nil {
+			if err := queries.ClearVotes(context.Background(), h.db, c.getRoomID()); err != nil {
 				log.Printf("clear votes: %v", err)
 			}
-			if err := queries.SetRevealed(context.Background(), h.db, c.roomID, false); err != nil {
+			if err := queries.SetRevealed(context.Background(), h.db, c.getRoomID(), false); err != nil {
 				log.Printf("set revealed false: %v", err)
 			}
 		}()
 
-		h.broadcastToRoom(c.roomID, EventResetDone, nil)
+		h.broadcastToRoom(c.getRoomID(), EventResetDone, nil)
 
 	case EventPing:
 		c.sendJSON(EventPong, nil)
@@ -294,7 +302,7 @@ func (h *Hub) broadcastToRoom(roomID, event string, payload any) {
 	}
 	for _, c := range h.clients[roomID] {
 		select {
-		case c.send <- data:
+		case c.getSend() <- data:
 		default:
 		}
 	}
@@ -310,7 +318,7 @@ func (h *Hub) broadcastToRoomExcept(roomID, excludePlayerID, event string, paylo
 			continue
 		}
 		select {
-		case c.send <- data:
+		case c.getSend() <- data:
 		default:
 		}
 	}
