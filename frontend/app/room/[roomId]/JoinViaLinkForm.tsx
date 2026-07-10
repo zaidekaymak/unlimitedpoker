@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { nanoid } from "@/lib/nanoid";
 
 interface Props {
   roomId: string;
   roomName: string;
+  onJoined: (pid: string, name: string) => void;
 }
 
-export function JoinViaLinkForm({ roomId, roomName }: Props) {
-  const router = useRouter();
+export function JoinViaLinkForm({ roomId, roomName, onJoined }: Props) {
   const [playerName, setPlayerName] = useState(
     typeof window !== "undefined" ? localStorage.getItem("playerName") ?? "" : ""
   );
@@ -23,7 +22,7 @@ export function JoinViaLinkForm({ roomId, roomName }: Props) {
     localStorage.setItem("playerName", playerName.trim());
     localStorage.setItem(`player_${roomId}`, playerId);
     localStorage.setItem(`playerName_${roomId}`, playerName.trim());
-    router.push(`/room/${roomId}`);
+    onJoined(playerId, playerName.trim());
   }
 
   return (
@@ -38,7 +37,7 @@ export function JoinViaLinkForm({ roomId, roomName }: Props) {
               type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Zaide"
+              placeholder="İsim yazın"
               autoFocus
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
               required

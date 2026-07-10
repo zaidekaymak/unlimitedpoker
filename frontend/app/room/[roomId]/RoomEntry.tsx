@@ -20,11 +20,15 @@ export function RoomEntry({ roomId, roomName }: Props) {
     setReady(true);
   }, [roomId]);
 
+  function handleJoined(pid: string, name: string) {
+    setSession({ pid, name });
+  }
+
   if (!ready) return null;
 
   if (session) {
     return <RoomClient roomId={roomId} roomName={roomName} playerId={session.pid} playerName={session.name} />;
   }
 
-  return <JoinViaLinkForm roomId={roomId} roomName={roomName} />;
+  return <JoinViaLinkForm roomId={roomId} roomName={roomName} onJoined={handleJoined} />;
 }

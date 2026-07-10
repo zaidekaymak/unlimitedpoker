@@ -177,6 +177,21 @@ func (h *Hub) handleAction(a action) {
 			player.HasVoted = true
 			playerName = player.Name
 		}
+		allVoted := len(room.Players) > 0
+		for _, player := range room.Players {
+			if !player.HasVoted {
+				allVoted = false
+				break
+			}
+		}
+		var revealVotes map[string]string
+		if allVoted {
+			room.Revealed = true
+			revealVotes = make(map[string]string, len(room.Votes))
+			for k, v := range room.Votes {
+				revealVotes[k] = v
+			}
+		}
 		room.mu.Unlock()
 
 		go func() {
@@ -190,6 +205,15 @@ func (h *Hub) handleAction(a action) {
 		}()
 
 		h.broadcastToRoom(c.roomID, EventVoted, VotedPayload{PlayerID: p.PlayerID})
+
+		if allVoted {
+			go func() {
+				if err := queries.SetRevealed(context.Background(), h.db, c.roomID, true); err != nil {
+					log.Printf("set revealed: %v", err)
+				}
+			}()
+			h.broadcastToRoom(c.roomID, EventRevealed, RevealedPayload{Votes: revealVotes})
+		}
 
 	case EventReveal:
 		var p RevealPayload
