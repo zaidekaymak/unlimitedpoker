@@ -7,6 +7,7 @@ import { PlayerList } from "@/components/PlayerList";
 import { CardDeck } from "@/components/CardDeck";
 import { VoteResults } from "@/components/VoteResults";
 import { AdminControls } from "@/components/AdminControls";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 
 interface Props {
   roomId: string;
@@ -25,7 +26,7 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
 
   const myPlayer = room?.players[playerId];
-  const isAdmin = room?.adminId === playerId;
+  const isAdmin = myPlayer?.isAdmin ?? false;
 
   function handleVote(value: string) {
     setSelectedValue(value);
@@ -43,9 +44,9 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">{roomName}</h1>
-          <p className="text-sm text-gray-500">Kod: <span className="font-mono font-medium">{roomId}</span></p>
         </div>
         <div className="flex items-center gap-3">
+          <CopyLinkButton roomId={roomId} />
           <ConnectionBadge status={status} />
         </div>
       </header>
