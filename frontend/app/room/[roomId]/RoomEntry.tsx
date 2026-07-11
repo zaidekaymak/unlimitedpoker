@@ -6,10 +6,9 @@ import { JoinViaLinkForm } from "./JoinViaLinkForm";
 
 interface Props {
   roomId: string;
-  roomName: string;
 }
 
-export function RoomEntry({ roomId, roomName }: Props) {
+export function RoomEntry({ roomId }: Props) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<{ pid: string; name: string } | null>(null);
 
@@ -27,8 +26,8 @@ export function RoomEntry({ roomId, roomName }: Props) {
   if (!ready) return null;
 
   if (session) {
-    return <RoomClient roomId={roomId} roomName={roomName} playerId={session.pid} playerName={session.name} />;
+    return <RoomClient roomId={roomId} playerId={session.pid} playerName={session.name} />;
   }
 
-  return <JoinViaLinkForm roomId={roomId} roomName={roomName} onJoined={handleJoined} />;
+  return <JoinViaLinkForm roomId={roomId} onJoined={handleJoined} />;
 }

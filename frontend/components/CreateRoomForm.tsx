@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createRoom } from "@/lib/api";
+import { nanoid } from "@/lib/nanoid";
 
 export function CreateRoomForm() {
   const router = useRouter();
@@ -10,26 +10,21 @@ export function CreateRoomForm() {
   const [playerName, setPlayerName] = useState(
     typeof window !== "undefined" ? localStorage.getItem("playerName") ?? "" : ""
   );
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!roomName.trim() || !playerName.trim()) return;
 
-    setLoading(true);
-    setError("");
-    try {
-      const res = await createRoom(roomName.trim(), playerName.trim());
-      localStorage.setItem("playerName", playerName.trim());
-      sessionStorage.setItem(`player_${res.roomId}`, res.adminPlayerId);
-      sessionStorage.setItem(`playerName_${res.roomId}`, playerName.trim());
-      router.push(`/room/${res.roomId}`);
-    } catch {
-      setError("Oda oluşturulamadı. Tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+    const roomId = nanoid(8);
+    const playerId = nanoid(12);
+
+    localStorage.setItem("playerName", playerName.trim());
+    sessionStorage.setItem(`player_${roomId}`, playerId);
+    sessionStorage.setItem(`playerName_${roomId}`, playerName.trim());
+    sessionStorage.setItem(`roomName_${roomId}`, roomName.trim());
+
+    router.push(`/room/${roomId}`);
   }
 
   return (
@@ -59,10 +54,9 @@ export function CreateRoomForm() {
       {error && <p className="text-red-500 text-sm">{error}</p>}
       <button
         type="submit"
-        disabled={loading}
-        className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+        className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
       >
-        {loading ? "Oluşturuluyor..." : "Oda Oluştur"}
+        Oda Oluştur
       </button>
     </form>
   );

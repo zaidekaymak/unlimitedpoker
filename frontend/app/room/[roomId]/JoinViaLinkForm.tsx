@@ -5,11 +5,10 @@ import { nanoid } from "@/lib/nanoid";
 
 interface Props {
   roomId: string;
-  roomName: string;
   onJoined: (pid: string, name: string) => void;
 }
 
-export function JoinViaLinkForm({ roomId, roomName, onJoined }: Props) {
+export function JoinViaLinkForm({ roomId, onJoined }: Props) {
   const [playerName, setPlayerName] = useState(
     typeof window !== "undefined" ? localStorage.getItem("playerName") ?? "" : ""
   );
@@ -28,8 +27,8 @@ export function JoinViaLinkForm({ roomId, roomName, onJoined }: Props) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm">
-        <h2 className="text-xl font-bold text-gray-800 mb-1">{roomName}</h2>
-        <p className="text-sm text-gray-500 mb-6">Odaya katılmak için adını gir</p>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">Odaya Katıl</h2>
+        <p className="text-sm text-gray-500 mb-6">Adını gir</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Adın</label>
@@ -47,7 +46,7 @@ export function JoinViaLinkForm({ roomId, roomName, onJoined }: Props) {
             type="submit"
             className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
           >
-            Odaya Katıl
+            Katıl
           </button>
         </form>
       </div>

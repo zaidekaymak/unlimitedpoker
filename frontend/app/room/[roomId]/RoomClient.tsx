@@ -9,19 +9,17 @@ import { useTheme } from "@/components/ThemeProvider";
 
 interface Props {
   roomId: string;
-  roomName: string;
   playerId: string;
   playerName: string;
 }
 
-export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
+export function RoomClient({ roomId, playerId, playerName }: Props) {
   const { room, sendVote, sendReveal, sendReset, sendEmoji, emojiEvents } = usePokerRoom(
     roomId,
     playerId,
     playerName
   );
   const { dark, toggle } = useTheme();
-
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
 
   const myPlayer = room?.players[playerId];
@@ -38,11 +36,10 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
-      {/* Header */}
       <header className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-            {room?.name || roomName}
+            {room?.name || "Bağlanılıyor..."}
           </h1>
           <div className="flex items-center gap-3">
             <CopyLinkButton roomId={roomId} />
@@ -58,7 +55,6 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Poker table — kart seçimi masanın içinde */}
         {room ? (
           <PokerTable
             players={room.players}
