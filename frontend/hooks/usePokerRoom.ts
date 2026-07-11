@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 import { supabase } from "@/lib/supabase";
 import { Player, Room, EmojiEvent } from "@/lib/types";
 
@@ -21,7 +22,7 @@ export function usePokerRoom(
   const [room, setRoom] = useState<Room | null>(null);
   const [emojiEvents, setEmojiEvents] = useState<EmojiEvent[]>([]);
   const emojiCounter = useRef(0);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const unmounted = useRef(false);
 
   async function loadState() {
@@ -71,7 +72,6 @@ export function usePokerRoom(
     unmounted.current = false;
 
     function deletePlayerFromDB() {
-      // keepalive: tarayıcı kapanırken bile isteği tamamla
       fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/players?id=eq.${playerId}`,
         {
@@ -87,119 +87,50 @@ export function usePokerRoom(
 
     window.addEventListener("beforeunload", deletePlayerFromDB);
 
-    // Register/upsert self as player then load full state
+    // Player kaydı + ilk state yükle
     supabase
       .from("players")
       .upsert({ id: playerId, room_id: roomId, name: playerName }, { onConflict: "id" })
       .then(() => loadState());
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channel = (supabase.channel(`room:${roomId}`) as any)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
-        (payload: { new: { id: string; name: string; revealed: boolean } }) => {
-          const updated = payload.new;
-          setRoom((prev) => {
-            if (!prev) return prev;
-            const wasRevealed = prev.revealed;
-            if (wasRevealed && !updated.revealed) {
-              // Reset happened: clear votes
-              return { ...prev, revealed: false, votes: null };
-            }
-            return { ...prev, revealed: updated.revealed };
-          });
-          if (updated.revealed) {
-            // Fetch votes now that they're revealed
-            supabase
-              .from("votes")
-              .select("*")
-              .eq("room_id", roomId)
-              .then(({ data }) => {
-                if (!data) return;
-                const votes: Record<string, string> = {};
-                for (const v of data) votes[v.player_id] = v.value;
-                setRoom((prev) => (prev ? { ...prev, votes } : prev));
-              });
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "players", filter: `room_id=eq.${roomId}` },
-        (payload: { new: { id: string; name: string; has_voted: boolean } }) => {
-          const p = payload.new;
-          setRoom((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              players: { ...prev.players, [p.id]: { id: p.id, name: p.name, isAdmin: false, hasVoted: p.has_voted } },
-            };
-          });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "players", filter: `room_id=eq.${roomId}` },
-        (payload: { new: { id: string; name: string; has_voted: boolean } }) => {
-          const p = payload.new;
-          setRoom((prev) => {
-            if (!prev) return prev;
-            const existing = prev.players[p.id];
-            if (!existing) return prev;
-            return {
-              ...prev,
-              players: { ...prev.players, [p.id]: { ...existing, hasVoted: p.has_voted } },
-            };
-          });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "players" },
-        (payload: { old: { id: string; room_id: string } }) => {
-          const { id, room_id } = payload.old;
-          if (room_id !== roomId) return;
-          setRoom((prev) => {
-            if (!prev) return prev;
-            const players = { ...prev.players };
-            delete players[id];
-            return { ...prev, players };
-          });
-        }
-      )
-      .on("broadcast", { event: "sync" }, () => {
-        if (!unmounted.current) loadState();
-      })
-      .on("broadcast", { event: "emoji" }, ({ payload }: { payload: { targetId: string; emoji: string } }) => {
-        spawnEmoji(payload.targetId, payload.emoji);
-      })
-      .subscribe((status: string) => {
-        // Subscription başarısız olursa state'i yeniden yükle
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          if (!unmounted.current) loadState();
-        }
-      });
+    // Socket.io bağlantısı
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
+      transports: ["websocket", "polling"], // WebSocket bloksa polling'e düş
+    });
 
-    channelRef.current = channel;
+    socket.on("connect", () => {
+      socket.emit("join", roomId);
+    });
 
-    // Polling fallback: WebSocket çalışmıyorsa (şirket ağı vb.) 1.5sn'de bir güncelle
-    const pollInterval = setInterval(() => {
+    // Başka biri DB'ye yazdı → state yenile
+    socket.on("sync", () => {
       if (!unmounted.current) loadState();
-    }, 1500);
+    });
 
-    // Tab tekrar görünür olunca anında güncelle
+    // Emoji
+    socket.on("emoji", ({ targetId, emoji }: { targetId: string; emoji: string }) => {
+      spawnEmoji(targetId, emoji);
+    });
+
+    socketRef.current = socket;
+
+    // Tab tekrar görünür olunca güncelle
     function handleVisibilityChange() {
       if (document.visibilityState === "visible" && !unmounted.current) loadState();
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Fallback polling (socket da çalışmıyorsa)
+    const pollInterval = setInterval(() => {
+      if (!unmounted.current) loadState();
+    }, 10000);
 
     return () => {
       window.removeEventListener("beforeunload", deletePlayerFromDB);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(pollInterval);
       unmounted.current = true;
-      channel.unsubscribe();
+      socket.disconnect();
     };
   }, [roomId, playerId, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -219,18 +150,17 @@ export function usePokerRoom(
         await supabase.from("rooms").update({ revealed: true }).eq("id", roomId);
       }
 
-      channelRef.current?.send({ type: "broadcast", event: "sync", payload: {} });
+      socketRef.current?.emit("sync", roomId);
     },
     [roomId, playerId]
   );
 
   const sendReveal = useCallback(async () => {
     await supabase.from("rooms").update({ revealed: true }).eq("id", roomId);
-    channelRef.current?.send({ type: "broadcast", event: "sync", payload: {} });
+    socketRef.current?.emit("sync", roomId);
   }, [roomId]);
 
   const sendReset = useCallback(async () => {
-    // Optimistic local update
     setRoom((prev) => {
       if (!prev) return prev;
       const players: Record<string, Player> = {};
@@ -242,17 +172,15 @@ export function usePokerRoom(
     await supabase.from("votes").delete().eq("room_id", roomId);
     await supabase.from("players").update({ has_voted: false }).eq("room_id", roomId);
     await supabase.from("rooms").update({ revealed: false }).eq("id", roomId);
-    channelRef.current?.send({ type: "broadcast", event: "sync", payload: {} });
+    socketRef.current?.emit("sync", roomId);
   }, [roomId]);
 
   const sendEmoji = useCallback(
     (targetId: string, emoji: string) => {
-      // Local echo (sender sees it immediately)
       spawnEmoji(targetId, emoji);
-      // Broadcast to all other clients via Supabase Realtime
-      channelRef.current?.send({ type: "broadcast", event: "emoji", payload: { targetId, emoji } });
+      socketRef.current?.emit("emoji", { roomId, targetId, emoji });
     },
-    [] // eslint-disable-line react-hooks/exhaustive-deps
+    [roomId] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return { room, sendVote, sendReveal, sendReset, sendEmoji, emojiEvents };
