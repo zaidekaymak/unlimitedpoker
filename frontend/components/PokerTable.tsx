@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { Player, EmojiEvent } from "@/lib/types";
 import { FIBONACCI } from "@/lib/constants";
 
-const EMOJIS = ["🎉", "😂", "👏", "🤔", "🙈", "🔥", "💯", "👍"];
+const EMOJIS = [
+  "🎉", "😂", "👏", "🤔", "🙈", "🔥", "💯", "👍",
+  "😍", "🥳", "😎", "🤩", "😅", "🫡", "💀", "😭",
+  "🤯", "🫠", "🥲", "😤", "🤬", "🙄", "😴", "🫶",
+  "⚡", "💩", "🚀", "🎯", "🍕", "🐛", "🤝", "❤️",
+  "NANKATSU",
+];
 const CONFETTI_EMOJIS = ["🎉", "🎊", "🥳", "⭐", "✨", "🎈", "🙌", "💥"];
 
 function cardColor(value: string) {
@@ -437,7 +443,7 @@ export function PokerTable({
                 {EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
-                    className="text-xl hover:scale-125 transition-transform leading-none"
+                    className={`hover:scale-125 transition-transform leading-none ${emoji === "NANKATSU" ? "text-xs font-bold text-red-500 px-1" : "text-xl"}`}
                     onClick={(e) => { e.stopPropagation(); handleEmojiClick(player.id, emoji); }}
                   >
                     {emoji}
