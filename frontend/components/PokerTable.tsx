@@ -2,8 +2,98 @@
 
 import { useState } from "react";
 import { Player, EmojiEvent } from "@/lib/types";
+import { FIBONACCI } from "@/lib/constants";
 
 const EMOJIS = ["🎉", "😂", "👏", "🤔", "🙈", "🔥", "💯", "👍"];
+
+function cardColor(value: string) {
+  const n = parseInt(value);
+  if (isNaN(n)) return { text: "#6b7280", border: "#d1d5db" };
+  if (n <= 3)   return { text: "#16a34a", border: "#86efac" };
+  if (n <= 8)   return { text: "#4f46e5", border: "#a5b4fc" };
+  return        { text: "#d97706", border: "#fcd34d" };
+}
+
+function PlayingCard({ value }: { value: string }) {
+  const { text, border } = cardColor(value);
+  const isLong = value.length > 2;
+  return (
+    <div
+      style={{
+        width: 38, height: 54,
+        background: "#fff",
+        border: `2px solid ${border}`,
+        borderRadius: 6,
+        boxShadow: "0 3px 8px rgba(0,0,0,0.18)",
+        position: "relative",
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <span style={{ position: "absolute", top: 2, left: 4, fontSize: isLong ? "0.5rem" : "0.6rem", fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif" }}>
+        {value}
+      </span>
+      <span style={{ fontSize: isLong ? "1rem" : "1.25rem", fontWeight: 900, color: text, fontFamily: "serif", lineHeight: 1 }}>
+        {value}
+      </span>
+      <span style={{ position: "absolute", bottom: 2, right: 4, fontSize: isLong ? "0.5rem" : "0.6rem", fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif", transform: "rotate(180deg)" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TableCardDeck({
+  selectedValue,
+  hasVoted,
+  onVote,
+}: {
+  selectedValue: string | null;
+  hasVoted: boolean;
+  onVote: (v: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.7rem", letterSpacing: "0.05em", margin: 0 }}>
+        {hasVoted ? "Oyunuz alındı — diğerleri oylasın" : "Kartınızı seçin"}
+      </p>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: 420 }}>
+        {FIBONACCI.map((value) => {
+          const isSelected = selectedValue === value;
+          return (
+            <button
+              key={value}
+              onClick={() => !hasVoted && onVote(value)}
+              style={{
+                width: 42,
+                height: 60,
+                borderRadius: 7,
+                border: isSelected ? "2.5px solid #818cf8" : "2px solid rgba(255,255,255,0.45)",
+                background: isSelected ? "#e0e7ff" : "rgba(255,255,255,0.88)",
+                color: isSelected ? "#3730a3" : "#374151",
+                fontWeight: 800,
+                fontSize: "1.05rem",
+                cursor: hasVoted ? "default" : "pointer",
+                transform: isSelected ? "translateY(-10px) scale(1.08)" : "translateY(0) scale(1)",
+                boxShadow: isSelected
+                  ? "0 10px 24px rgba(0,0,0,0.35)"
+                  : "0 3px 8px rgba(0,0,0,0.22)",
+                transition: "all 0.15s ease",
+                fontFamily: "serif",
+                outline: "none",
+                opacity: hasVoted && !isSelected ? 0.55 : 1,
+              }}
+            >
+              {value}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 interface PokerTableProps {
   players: Record<string, Player>;
@@ -12,6 +102,9 @@ interface PokerTableProps {
   myPlayerId: string;
   emojiEvents: EmojiEvent[];
   onSendEmoji: (targetId: string, emoji: string) => void;
+  selectedValue: string | null;
+  hasVoted: boolean;
+  onVote: (value: string) => void;
 }
 
 export function PokerTable({
@@ -21,6 +114,9 @@ export function PokerTable({
   myPlayerId,
   emojiEvents,
   onSendEmoji,
+  selectedValue,
+  hasVoted,
+  onVote,
 }: PokerTableProps) {
   const [activePickerId, setActivePickerId] = useState<string | null>(null);
   const playerList = Object.values(players);
@@ -38,7 +134,7 @@ export function PokerTable({
   return (
     <div
       className="relative w-full mx-auto select-none"
-      style={{ maxWidth: 720, aspectRatio: "12/7" }}
+      style={{ maxWidth: 900, aspectRatio: "3/2" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) setActivePickerId(null);
       }}
@@ -47,43 +143,43 @@ export function PokerTable({
       <div
         className="absolute shadow-2xl"
         style={{
-          left: "12%",
-          top: "12%",
-          width: "76%",
-          height: "76%",
+          left: "10%", top: "10%", width: "80%", height: "80%",
           borderRadius: "50%",
-          background:
-            "radial-gradient(ellipse at 40% 35%, #1a6b3a 0%, #155230 60%, #0f3d24 100%)",
-          border: "14px solid #6b3a1a",
-          boxShadow:
-            "0 25px 60px rgba(0,0,0,0.45), inset 0 2px 8px rgba(255,255,255,0.08)",
+          background: "radial-gradient(ellipse at 40% 35%, #1a6b3a 0%, #155230 60%, #0f3d24 100%)",
+          border: "16px solid #6b3a1a",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 2px 8px rgba(255,255,255,0.08)",
         }}
       >
-        {/* Subtle felt grain */}
         <div
           className="absolute inset-0 rounded-full opacity-10"
           style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)",
+            backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)",
           }}
         />
-        {/* Inner rail highlight */}
-        <div
-          className="absolute rounded-full"
-          style={{
-            inset: 6,
-            border: "2px solid rgba(255,255,255,0.06)",
-          }}
-        />
+        <div className="absolute rounded-full" style={{ inset: 6, border: "2px solid rgba(255,255,255,0.06)" }} />
       </div>
+
+      {/* Center content — card deck (not revealed) */}
+      {!revealed && (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%", top: "52%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 5,
+            pointerEvents: "auto",
+          }}
+        >
+          <TableCardDeck selectedValue={selectedValue} hasVoted={hasVoted} onVote={onVote} />
+        </div>
+      )}
 
       {/* Players around the table */}
       {playerList.map((player, i) => {
         const total = playerList.length;
         const angle = (2 * Math.PI * i) / total - Math.PI / 2;
-        // Ellipse slightly outside the table
-        const rx = 44; // % of container width from center
-        const ry = 40; // % of container height from center
+        const rx = 46;
+        const ry = 43;
         const x = 50 + rx * Math.cos(angle);
         const y = 50 + ry * Math.sin(angle);
 
@@ -96,20 +192,18 @@ export function PokerTable({
             key={player.id}
             style={{
               position: "absolute",
-              left: `${x}%`,
-              top: `${y}%`,
+              left: `${x}%`, top: `${y}%`,
               transform: "translate(-50%, -50%)",
               zIndex: showPicker ? 30 : 10,
             }}
           >
-            {/* Floating emoji particles */}
+            {/* Emoji particles */}
             {myParticles.map((particle) => (
               <span
                 key={particle.id}
                 style={{
                   position: "absolute",
-                  left: "50%",
-                  top: "-8px",
+                  left: "50%", top: "-8px",
                   fontSize: "1.8rem",
                   pointerEvents: "none",
                   zIndex: 60,
@@ -126,20 +220,15 @@ export function PokerTable({
                 className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 flex gap-1 rounded-full shadow-xl px-3 py-1.5 z-40 border border-gray-200 dark:border-gray-600 whitespace-nowrap bg-white dark:bg-gray-800"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex gap-1">
-                  {EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      className="text-xl hover:scale-125 transition-transform leading-none"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEmojiClick(player.id, emoji);
-                      }}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+                {EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="text-xl hover:scale-125 transition-transform leading-none"
+                    onClick={(e) => { e.stopPropagation(); handleEmojiClick(player.id, emoji); }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
               </div>
             )}
 
@@ -148,10 +237,9 @@ export function PokerTable({
               className={`
                 relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl shadow-md cursor-pointer
                 transition-all duration-150 hover:scale-105 active:scale-95
-                ${
-                  isMe
-                    ? "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-400 dark:border-indigo-500"
-                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500"
+                ${isMe
+                  ? "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-400 dark:border-indigo-500"
+                  : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500"
                 }
               `}
               style={{ minWidth: 72 }}
@@ -159,42 +247,32 @@ export function PokerTable({
               title={isMe ? player.name : `${player.name} — emoji fırlat`}
             >
               {player.isAdmin && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-sm leading-none">
-                  👑
-                </span>
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-sm leading-none">👑</span>
               )}
-
               <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 text-center max-w-[68px] truncate leading-tight">
                 {player.name}
               </span>
-
-              <div className="w-8 h-7 rounded flex items-center justify-center text-xs font-bold">
-                {revealed && votes?.[player.id] ? (
-                  <span className="bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200 w-full h-full rounded flex items-center justify-center font-bold">
-                    {votes[player.id]}
-                  </span>
-                ) : player.hasVoted ? (
-                  <span className="bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 w-full h-full rounded flex items-center justify-center">
-                    ✓
-                  </span>
-                ) : (
-                  <span className="bg-gray-100 dark:bg-gray-700 text-gray-400 w-full h-full rounded flex items-center justify-center">
-                    —
-                  </span>
-                )}
-              </div>
-
-              {!isMe && (
-                <span className="text-[9px] text-gray-400 dark:text-gray-500 leading-none">
-                  🎯 fırlat
-                </span>
+              {revealed && votes?.[player.id] ? (
+                <PlayingCard value={votes[player.id]} />
+              ) : (
+                <>
+                  <div className="w-8 h-7 rounded flex items-center justify-center text-xs font-bold">
+                    {player.hasVoted ? (
+                      <span className="bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 w-full h-full rounded flex items-center justify-center">✓</span>
+                    ) : (
+                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-400 w-full h-full rounded flex items-center justify-center">—</span>
+                    )}
+                  </div>
+                  {!isMe && (
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 leading-none">🎯 fırlat</span>
+                  )}
+                </>
               )}
             </div>
           </div>
         );
       })}
 
-      {/* Empty state */}
       {playerList.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-green-200/40 text-sm font-medium">
           Katılımcı bekleniyor...
