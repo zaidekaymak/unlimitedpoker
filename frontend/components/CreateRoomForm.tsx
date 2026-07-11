@@ -22,8 +22,8 @@ export function CreateRoomForm() {
     try {
       const res = await createRoom(roomName.trim(), playerName.trim());
       localStorage.setItem("playerName", playerName.trim());
-      localStorage.setItem(`player_${res.roomId}`, res.adminPlayerId);
-      localStorage.setItem(`playerName_${res.roomId}`, playerName.trim());
+      sessionStorage.setItem(`player_${res.roomId}`, res.adminPlayerId);
+      sessionStorage.setItem(`playerName_${res.roomId}`, playerName.trim());
       router.push(`/room/${res.roomId}`);
     } catch {
       setError("Oda oluşturulamadı. Tekrar deneyin.");
