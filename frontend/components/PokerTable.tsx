@@ -218,25 +218,33 @@ interface LocalParticle {
 }
 
 function EmojiParticle({ particle: p }: { particle: LocalParticle }) {
-  const ref = useRef<HTMLSpanElement>(null);
+  // step 0 → başlangıç pozisyonu (uzakta), step 1 → hedefe uç, step 2 → yukarı kaybol
+  const [step, setStep] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.animate(
-      [
-        { opacity: 0.9, transform: `translate(calc(-50% + ${p.dx}px), calc(-50% + ${p.dy}px)) scale(0.5)` },
-        { opacity: 1,   transform: `translate(-50%, -50%) scale(1.4)`,                   offset: 0.55 },
-        { opacity: 1,   transform: `translate(-50%, calc(-50% - 10px)) scale(1.05)`,     offset: 0.75 },
-        { opacity: 0,   transform: `translate(-50%, calc(-50% - 85px)) scale(1.6)` },
-      ],
-      { duration: 2100, easing: "ease-out", fill: "forwards" }
-    );
+    // İki RAF: step 0 render olduktan sonra transition başlasın
+    let r2: number;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setStep(1));
+    });
+    const t = setTimeout(() => setStep(2), 950);
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); clearTimeout(t); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const transforms = [
+    `translate(calc(-50% + ${p.dx}px), calc(-50% + ${p.dy}px)) scale(0.5)`,
+    `translate(-50%, -50%) scale(1.3)`,
+    `translate(-50%, calc(-50% - 80px)) scale(1.6)`,
+  ];
+
+  const transitions = [
+    "none",
+    "transform 0.75s ease-out, opacity 0.1s",
+    "transform 0.55s ease-out, opacity 0.45s ease-in",
+  ];
 
   return (
     <span
-      ref={ref}
       style={{
         position: "absolute",
         left: `${p.targetX}%`,
@@ -244,7 +252,10 @@ function EmojiParticle({ particle: p }: { particle: LocalParticle }) {
         fontSize: "2rem",
         pointerEvents: "none",
         zIndex: 100,
-        opacity: 0,
+        transform: transforms[step],
+        opacity: step === 2 ? 0 : 0.95,
+        transition: transitions[step],
+        willChange: "transform, opacity",
       }}
     >
       {p.emoji}
@@ -268,6 +279,8 @@ export function PokerTable({
   const [activePickerId, setActivePickerId] = useState<string | null>(null);
   const [localParticles, setLocalParticles] = useState<LocalParticle[]>([]);
   const seenIds = useRef(new Set<number>());
+  // Local echo ile gönderilen emojiler: server echo'su geldiğinde çift göstermemek için
+  const localEchoes = useRef<{ targetId: string; emoji: string; at: number }[]>([]);
   const playerList = Object.values(players);
 
   // Convert incoming emoji events to positioned particles
@@ -275,9 +288,15 @@ export function PokerTable({
     const newEvents = emojiEvents.filter((e) => !seenIds.current.has(e.id));
     if (newEvents.length === 0) return;
 
+    const now = Date.now();
     const added: LocalParticle[] = [];
     for (const event of newEvents) {
       seenIds.current.add(event.id);
+      // Local echo varsa server echo'yu atla (çift gösterme)
+      const echoIdx = localEchoes.current.findIndex(
+        (e) => e.targetId === event.targetPlayerId && e.emoji === event.emoji && now - e.at < 2000
+      );
+      if (echoIdx !== -1) { localEchoes.current.splice(echoIdx, 1); continue; }
       const idx = playerList.findIndex((p) => p.id === event.targetPlayerId);
       if (idx === -1) continue;
       const total = playerList.length;
@@ -309,9 +328,32 @@ export function PokerTable({
     setActivePickerId((prev) => (prev === playerId ? null : playerId));
   }
 
+  function spawnParticle(targetId: string, emoji: string) {
+    const idx = playerList.findIndex((p) => p.id === targetId);
+    if (idx === -1) return;
+    const total = playerList.length;
+    const angle = (2 * Math.PI * idx) / total - Math.PI / 2;
+    const targetX = 50 + 46 * Math.cos(angle);
+    const targetY = 50 + 43 * Math.sin(angle);
+    const throwAngle = Math.random() * 2 * Math.PI;
+    const dist = 180 + Math.random() * 130;
+    const p: LocalParticle = {
+      uid: ++particleUid,
+      emoji,
+      targetX,
+      targetY,
+      dx: Math.cos(throwAngle) * dist,
+      dy: Math.sin(throwAngle) * dist,
+    };
+    setLocalParticles((prev) => [...prev, p]);
+    setTimeout(() => setLocalParticles((prev) => prev.filter((x) => x.uid !== p.uid)), 2400);
+  }
+
   function handleEmojiClick(targetId: string, emoji: string) {
     onSendEmoji(targetId, emoji);
-    // picker stays open so user can send more
+    // Local echo kaydı — server echo geldiğinde çift göstermemek için
+    localEchoes.current.push({ targetId, emoji, at: Date.now() });
+    spawnParticle(targetId, emoji);
   }
 
   const showResults = revealed && votes && Object.keys(votes).length > 0;
