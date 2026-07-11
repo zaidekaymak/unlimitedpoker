@@ -21,7 +21,6 @@ function PlayingCard({ value, size = "md" }: { value: string; size?: "sm" | "md"
   const w = size === "sm" ? 32 : 38;
   const h = size === "sm" ? 46 : 54;
   const centerSize = size === "sm" ? (isLong ? "0.85rem" : "1rem") : (isLong ? "1rem" : "1.25rem");
-  const cornerSize = size === "sm" ? "0.45rem" : (isLong ? "0.5rem" : "0.6rem");
   return (
     <div
       style={{
@@ -37,13 +36,7 @@ function PlayingCard({ value, size = "md" }: { value: string; size?: "sm" | "md"
         justifyContent: "center",
       }}
     >
-      <span style={{ position: "absolute", top: 2, left: 3, fontSize: cornerSize, fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif" }}>
-        {value}
-      </span>
       <span style={{ fontSize: centerSize, fontWeight: 900, color: text, fontFamily: "serif", lineHeight: 1 }}>
-        {value}
-      </span>
-      <span style={{ position: "absolute", bottom: 2, right: 3, fontSize: cornerSize, fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif", transform: "rotate(180deg)" }}>
         {value}
       </span>
     </div>
@@ -100,6 +93,18 @@ function TableRevealResults({
       : null;
   const allSame = numeric.length > 1 && numeric.every((n) => n === numeric[0]);
 
+  // Group by value, preserve Fibonacci order
+  const counts: Record<string, number> = {};
+  for (const [, v] of entries) counts[v] = (counts[v] ?? 0) + 1;
+  const grouped = Object.entries(counts).sort((a, b) => {
+    const na = parseFloat(a[0]);
+    const nb = parseFloat(b[0]);
+    if (isNaN(na) && isNaN(nb)) return 0;
+    if (isNaN(na)) return 1;
+    if (isNaN(nb)) return -1;
+    return na - nb;
+  });
+
   const [showConfetti, setShowConfetti] = useState(false);
   useEffect(() => {
     if (allSame) {
@@ -113,21 +118,21 @@ function TableRevealResults({
     <>
       {showConfetti && <Confetti />}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        {/* All vote cards spread */}
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: 380 }}>
-          {entries.map(([pid, value]) => (
-            <PlayingCard key={pid} value={value} size="sm" />
+        {/* Grouped cards with count below each */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: 420 }}>
+          {grouped.map(([value, count]) => (
+            <div key={value} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <PlayingCard value={value} size="sm" />
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.65rem", fontWeight: 600 }}>
+                {count} kişi
+              </span>
+            </div>
           ))}
         </div>
 
-        {/* Vote count */}
-        <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.7rem", margin: 0, letterSpacing: "0.04em" }}>
-          {entries.length} kişi oyladı
-        </p>
-
         {/* Average */}
         {average && (
-          <div style={{ textAlign: "center", lineHeight: 1 }}>
+          <div style={{ textAlign: "center", lineHeight: 1, marginTop: 2 }}>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.6rem", margin: "0 0 3px 0", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               Ortalama
             </p>
@@ -158,9 +163,6 @@ function TableCardDeck({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.7rem", letterSpacing: "0.05em", margin: 0 }}>
-        {hasVoted ? "Oyunuz alındı — değiştirmek için tekrar seçin" : "Kartınızı seçin"}
-      </p>
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: 420 }}>
         {FIBONACCI.map((value) => {
           const isSelected = selectedValue === value;
