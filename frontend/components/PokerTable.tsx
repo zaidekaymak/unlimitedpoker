@@ -82,8 +82,22 @@ const EMOJIS = [
   "🔃","🔄","🔙","🔚","🔛","🔜","🔝","🆗","🆙","🆒","🆕","🆓","0️⃣","1️⃣",
   "2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟","🔠","🔡","🔢","🔣","🔤",
   "🅰️","🅱️","🆎","🆑","🅾️","🆘","❓","❔","❕","❗","‼️","⁉️","🔅","🔆",
-  // ÖZEL
+  // ÖZEL YAZILI
   "NANKATSU",
+  "HADİ UYAN",
+  "KENDİNE GEL",
+  "FOCUS",
+  "ACELECİ",
+  "YAV YAV",
+  "NE O?",
+  "DÜŞÜN",
+  "EMİN MİSİN?",
+  "GEÇ KALDIN",
+  "BRAVO",
+  "OLMADI",
+  "TAM İSABET",
+  "SANA NE",
+  "EFSANE",
 ];
 const CONFETTI_EMOJIS = ["🎉", "🎊", "🥳", "⭐", "✨", "🎈", "🙌", "💥"];
 
@@ -518,7 +532,7 @@ export function PokerTable({
                 {EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
-                    className={`hover:scale-125 transition-transform leading-none ${emoji === "NANKATSU" ? "text-xs font-bold text-red-500 px-1" : "text-xl"}`}
+                    className={`hover:scale-125 transition-transform leading-none ${/^[A-ZÇĞİÖŞÜa-zçğışöü\s?!]+$/.test(emoji) ? "text-xs font-bold text-red-500 px-1 py-0.5 bg-red-50 dark:bg-red-950 rounded" : "text-xl"}`}
                     onClick={(e) => { e.stopPropagation(); handleEmojiClick(player.id, emoji); }}
                   >
                     {emoji}
