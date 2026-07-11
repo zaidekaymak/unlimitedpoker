@@ -18,3 +18,9 @@ export interface WSMessage {
   event: string;
   payload: unknown;
 }
+
+export interface EmojiEvent {
+  id: number;
+  emoji: string;
+  targetPlayerId: string;
+}

@@ -7,6 +7,7 @@ export const WS_EVENTS = {
   REVEAL: "reveal",
   RESET: "reset",
   PING: "ping",
+  EMOJI: "emoji",
   ROOM_STATE: "room_state",
   PLAYER_JOINED: "player_joined",
   PLAYER_LEFT: "player_left",

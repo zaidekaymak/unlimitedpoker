@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getWSUrl, getSSEUrl, getActionUrl } from "@/lib/api";
 import { WS_EVENTS } from "@/lib/constants";
-import { Player, Room, WSMessage } from "@/lib/types";
+import { Player, Room, WSMessage, EmojiEvent } from "@/lib/types";
 
 export type ConnectionStatus = "connecting" | "open" | "closed" | "error";
 
@@ -14,6 +14,8 @@ interface UsePokerRoomReturn {
   sendVote: (value: string) => void;
   sendReveal: () => void;
   sendReset: () => void;
+  sendEmoji: (targetId: string, emoji: string) => void;
+  emojiEvents: EmojiEvent[];
 }
 
 export function usePokerRoom(
@@ -23,6 +25,8 @@ export function usePokerRoom(
 ): UsePokerRoomReturn {
   const [room, setRoom] = useState<Room | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
+  const [emojiEvents, setEmojiEvents] = useState<EmojiEvent[]>([]);
+  const emojiCounter = useRef(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -98,6 +102,16 @@ export function usePokerRoom(
           return { ...prev, players, votes: null, revealed: false };
         });
         break;
+
+      case WS_EVENTS.EMOJI: {
+        const { targetId, emoji } = msg.payload as { targetId: string; emoji: string };
+        const id = ++emojiCounter.current;
+        setEmojiEvents((prev) => [...prev, { id, emoji, targetPlayerId: targetId }]);
+        setTimeout(() => {
+          setEmojiEvents((prev) => prev.filter((e) => e.id !== id));
+        }, 2000);
+        break;
+      }
     }
   }
 
@@ -248,5 +262,10 @@ export function usePokerRoom(
     [send, playerId]
   );
 
-  return { room, status, myPlayerId: playerId, sendVote, sendReveal, sendReset };
+  const sendEmoji = useCallback(
+    (targetId: string, emoji: string) => send(WS_EVENTS.EMOJI, { targetId, emoji }),
+    [send]
+  );
+
+  return { room, status, myPlayerId: playerId, sendVote, sendReveal, sendReset, sendEmoji, emojiEvents };
 }

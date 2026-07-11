@@ -9,6 +9,7 @@ const (
 	EventReveal = "reveal"
 	EventReset  = "reset"
 	EventPing   = "ping"
+	EventEmoji  = "emoji"
 )
 
 // Server → Client events
@@ -50,6 +51,11 @@ type RevealPayload struct {
 
 type ResetPayload struct {
 	PlayerID string `json:"playerId"`
+}
+
+type EmojiPayload struct {
+	TargetID string `json:"targetId"`
+	Emoji    string `json:"emoji"`
 }
 
 // Payloads for server → client

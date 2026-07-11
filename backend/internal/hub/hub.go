@@ -338,6 +338,14 @@ func (h *Hub) handleAction(a action) {
 		h.updateSnapshot(c.getRoomID())
 		h.broadcastToRoom(c.getRoomID(), EventResetDone, nil)
 
+	case EventEmoji:
+		var p EmojiPayload
+		if err := json.Unmarshal(msg.Payload, &p); err != nil {
+			return
+		}
+		// Broadcast anonymously to everyone in the room
+		h.broadcastToRoom(c.getRoomID(), EventEmoji, p)
+
 	case EventPing:
 		c.sendJSON(EventPong, nil)
 	}
