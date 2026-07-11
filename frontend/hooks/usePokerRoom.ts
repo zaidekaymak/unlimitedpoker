@@ -183,10 +183,10 @@ export function usePokerRoom(
 
     channelRef.current = channel;
 
-    // Polling fallback: broadcast gelmediyse 30sn'de bir taze veri çek
+    // Polling fallback: WebSocket çalışmıyorsa (şirket ağı vb.) 1.5sn'de bir güncelle
     const pollInterval = setInterval(() => {
       if (!unmounted.current) loadState();
-    }, 30000);
+    }, 1500);
 
     // Tab tekrar görünür olunca anında güncelle
     function handleVisibilityChange() {
