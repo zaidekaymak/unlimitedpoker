@@ -70,6 +70,25 @@ export function usePokerRoom(
   useEffect(() => {
     unmounted.current = false;
 
+    function removePlayer() {
+      // keepalive: tarayıcı kapanırken bile isteği tamamla
+      fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/players?id=eq.${playerId}`,
+        {
+          method: "DELETE",
+          headers: {
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+          },
+          keepalive: true,
+        }
+      );
+      sessionStorage.removeItem(`player_${roomId}`);
+      sessionStorage.removeItem(`playerName_${roomId}`);
+    }
+
+    window.addEventListener("beforeunload", removePlayer);
+
     // Register/upsert self as player then load full state
     supabase
       .from("players")
@@ -159,8 +178,11 @@ export function usePokerRoom(
     channelRef.current = channel;
 
     return () => {
+      window.removeEventListener("beforeunload", removePlayer);
       unmounted.current = true;
       channel.unsubscribe();
+      // Uygulama içi navigasyonda da player'ı sil
+      removePlayer();
     };
   }, [roomId, playerId, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -170,6 +192,15 @@ export function usePokerRoom(
         .from("votes")
         .upsert({ player_id: playerId, room_id: roomId, value }, { onConflict: "player_id" });
       await supabase.from("players").update({ has_voted: true }).eq("id", playerId);
+
+      // Tüm oyuncular oy verdiyse otomatik kartları aç
+      const { data: players } = await supabase
+        .from("players")
+        .select("has_voted")
+        .eq("room_id", roomId);
+      if (players && players.length > 0 && players.every((p) => p.has_voted)) {
+        await supabase.from("rooms").update({ revealed: true }).eq("id", roomId);
+      }
     },
     [roomId, playerId]
   );

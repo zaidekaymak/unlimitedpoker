@@ -14,8 +14,8 @@ export function RoomEntry({ roomId, roomName }: Props) {
   const [session, setSession] = useState<{ pid: string; name: string } | null>(null);
 
   useEffect(() => {
-    const pid = localStorage.getItem(`player_${roomId}`);
-    const name = localStorage.getItem(`playerName_${roomId}`);
+    const pid = sessionStorage.getItem(`player_${roomId}`);
+    const name = sessionStorage.getItem(`playerName_${roomId}`);
     if (pid && name) setSession({ pid, name });
     setReady(true);
   }, [roomId]);

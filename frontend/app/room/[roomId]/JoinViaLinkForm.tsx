@@ -20,8 +20,8 @@ export function JoinViaLinkForm({ roomId, roomName, onJoined }: Props) {
 
     const playerId = nanoid(12);
     localStorage.setItem("playerName", playerName.trim());
-    localStorage.setItem(`player_${roomId}`, playerId);
-    localStorage.setItem(`playerName_${roomId}`, playerName.trim());
+    sessionStorage.setItem(`player_${roomId}`, playerId);
+    sessionStorage.setItem(`playerName_${roomId}`, playerName.trim());
     onJoined(playerId, playerName.trim());
   }
 
