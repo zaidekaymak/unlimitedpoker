@@ -307,17 +307,22 @@ export function PokerTable({
         <div className="absolute rounded-full" style={{ inset: 6, border: "2px solid rgba(255,255,255,0.06)" }} />
       </div>
 
-      {/* Emoji particles */}
+      {/* Emoji particle keyframes — style block ayrı, span içinde değil */}
+      {localParticles.length > 0 && (
+        <style>{localParticles.map((p) => `
+          @keyframes emoji-throw-${p.uid} {
+            0%   { opacity:.9; transform:translate(calc(-50% + ${p.dx}px),calc(-50% + ${p.dy}px)) scale(.5); }
+            55%  { opacity:1;  transform:translate(-50%,-50%) scale(1.4); }
+            75%  { opacity:1;  transform:translate(-50%,calc(-50% - 10px)) scale(1.05); }
+            100% { opacity:0;  transform:translate(-50%,calc(-50% - 85px)) scale(1.6); }
+          }
+        `).join("")}</style>
+      )}
       {localParticles.map((p) => (
-        <span key={p.uid} style={{ position: "absolute", left: `${p.targetX}%`, top: `${p.targetY}%`, fontSize: "2rem", pointerEvents: "none", zIndex: 100, animation: `emoji-throw-${p.uid} 2.1s ease-out forwards` }}>
-          <style>{`
-            @keyframes emoji-throw-${p.uid} {
-              0%   { opacity:.9; transform:translate(calc(-50% + ${p.dx}px),calc(-50% + ${p.dy}px)) scale(.5); }
-              55%  { opacity:1;  transform:translate(-50%,-50%) scale(1.4); }
-              75%  { opacity:1;  transform:translate(-50%,calc(-50% - 10px)) scale(1.05); }
-              100% { opacity:0;  transform:translate(-50%,calc(-50% - 85px)) scale(1.6); }
-            }
-          `}</style>
+        <span
+          key={p.uid}
+          style={{ position: "absolute", left: `${p.targetX}%`, top: `${p.targetY}%`, fontSize: "2rem", pointerEvents: "none", zIndex: 100, animation: `emoji-throw-${p.uid} 2.1s ease-out forwards` }}
+        >
           {p.emoji}
         </span>
       ))}
