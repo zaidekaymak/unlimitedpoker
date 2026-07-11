@@ -39,9 +39,10 @@ io.on("connection", (socket) => {
 
   socket.on("join-room", ({ roomId, playerId, playerName, roomName }) => {
     if (!rooms.has(roomId)) {
+      // Oda yoksa yarat — isim sadece creator'dan gelir
       rooms.set(roomId, {
         id: roomId,
-        name: roomName || roomId,
+        name: roomName || "Oda",
         revealed: false,
         players: new Map(),
         votes: new Map(),

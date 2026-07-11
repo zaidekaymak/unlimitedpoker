@@ -32,9 +32,8 @@ export function usePokerRoom(
   }
 
   useEffect(() => {
-    const roomName =
-      (typeof window !== "undefined" && sessionStorage.getItem(`roomName_${roomId}`)) ||
-      roomId;
+    // roomName sadece oda ilk kez yaratılırken lazım (creator'da var, joiner'da yok)
+    const roomName = sessionStorage.getItem(`roomName_${roomId}`) ?? undefined;
 
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
       transports: ["polling", "websocket"],
