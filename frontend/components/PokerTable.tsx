@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Player, EmojiEvent } from "@/lib/types";
 import { FIBONACCI } from "@/lib/constants";
 
@@ -208,6 +208,17 @@ interface PokerTableProps {
   onVote: (value: string) => void;
 }
 
+interface LocalParticle {
+  uid: number;
+  emoji: string;
+  targetX: number;
+  targetY: number;
+  dx: number;
+  dy: number;
+}
+
+let particleUid = 0;
+
 export function PokerTable({
   players,
   votes,
@@ -220,7 +231,43 @@ export function PokerTable({
   onVote,
 }: PokerTableProps) {
   const [activePickerId, setActivePickerId] = useState<string | null>(null);
+  const [localParticles, setLocalParticles] = useState<LocalParticle[]>([]);
+  const seenIds = useRef(new Set<number>());
   const playerList = Object.values(players);
+
+  // Convert incoming emoji events to positioned particles
+  useEffect(() => {
+    const newEvents = emojiEvents.filter((e) => !seenIds.current.has(e.id));
+    if (newEvents.length === 0) return;
+
+    const added: LocalParticle[] = [];
+    for (const event of newEvents) {
+      seenIds.current.add(event.id);
+      const idx = playerList.findIndex((p) => p.id === event.targetPlayerId);
+      if (idx === -1) continue;
+      const total = playerList.length;
+      const angle = (2 * Math.PI * idx) / total - Math.PI / 2;
+      const targetX = 50 + 46 * Math.cos(angle);
+      const targetY = 50 + 43 * Math.sin(angle);
+      const throwAngle = Math.random() * 2 * Math.PI;
+      const dist = 180 + Math.random() * 130;
+      added.push({
+        uid: ++particleUid,
+        emoji: event.emoji,
+        targetX,
+        targetY,
+        dx: Math.cos(throwAngle) * dist,
+        dy: Math.sin(throwAngle) * dist,
+      });
+    }
+
+    if (added.length === 0) return;
+    setLocalParticles((prev) => [...prev, ...added]);
+    const uids = added.map((p) => p.uid);
+    setTimeout(() => {
+      setLocalParticles((prev) => prev.filter((p) => !uids.includes(p.uid)));
+    }, 2400);
+  }, [emojiEvents, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function togglePicker(playerId: string) {
     if (playerId === myPlayerId) return;
@@ -229,7 +276,7 @@ export function PokerTable({
 
   function handleEmojiClick(targetId: string, emoji: string) {
     onSendEmoji(targetId, emoji);
-    setActivePickerId(null);
+    // picker stays open so user can send more
   }
 
   const showResults = revealed && votes && Object.keys(votes).length > 0;
@@ -260,6 +307,25 @@ export function PokerTable({
         <div className="absolute rounded-full" style={{ inset: 6, border: "2px solid rgba(255,255,255,0.06)" }} />
       </div>
 
+      {/* Emoji particles — rendered in table container for correct z-index & visibility */}
+      {localParticles.map((p) => (
+        <span
+          key={p.uid}
+          style={{
+            position: "absolute",
+            left: `${p.targetX}%`,
+            top: `${p.targetY}%`,
+            fontSize: "2rem",
+            pointerEvents: "none",
+            zIndex: 100,
+            animation: "emoji-throw 2.1s ease-out forwards",
+            ...({ "--dx": `${p.dx}px`, "--dy": `${p.dy}px` } as React.CSSProperties),
+          }}
+        >
+          {p.emoji}
+        </span>
+      ))}
+
       {/* Center content */}
       <div
         style={{
@@ -288,7 +354,6 @@ export function PokerTable({
 
         const isMe = player.id === myPlayerId;
         const showPicker = activePickerId === player.id;
-        const myParticles = emojiEvents.filter((e) => e.targetPlayerId === player.id);
 
         return (
           <div
@@ -300,23 +365,6 @@ export function PokerTable({
               zIndex: showPicker ? 30 : 10,
             }}
           >
-            {/* Emoji particles */}
-            {myParticles.map((particle) => (
-              <span
-                key={particle.id}
-                style={{
-                  position: "absolute",
-                  left: "50%", top: "-8px",
-                  fontSize: "1.8rem",
-                  pointerEvents: "none",
-                  zIndex: 60,
-                  animation: "emoji-float-up 1.5s ease-out forwards",
-                }}
-              >
-                {particle.emoji}
-              </span>
-            ))}
-
             {/* Emoji picker */}
             {showPicker && (
               <div
