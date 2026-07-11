@@ -1,40 +1,33 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { supabase } from "./supabase";
+import { nanoid } from "./nanoid";
 
 export interface CreateRoomResponse {
   roomId: string;
-  adminId: string;
   adminPlayerId: string;
 }
 
 export async function createRoom(name: string, adminName: string): Promise<CreateRoomResponse> {
-  const res = await fetch(`${API_URL}/rooms`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, adminName }),
-  });
-  if (!res.ok) throw new Error("Failed to create room");
-  return res.json();
+  const roomId = nanoid(8);
+  const playerId = nanoid(12);
+
+  const { error: roomError } = await supabase
+    .from("rooms")
+    .insert({ id: roomId, name });
+  if (roomError) throw new Error("Failed to create room");
+
+  const { error: playerError } = await supabase
+    .from("players")
+    .insert({ id: playerId, room_id: roomId, name: adminName });
+  if (playerError) throw new Error("Failed to create player");
+
+  return { roomId, adminPlayerId: playerId };
 }
 
-export async function getRoom(roomId: string) {
-  const res = await fetch(`${API_URL}/rooms/${roomId}`, { cache: "no-store" });
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export function getWSUrl(roomId: string): string {
-  const wsBase =
-    process.env.NEXT_PUBLIC_WS_URL ??
-    (typeof window !== "undefined" && window.location.protocol === "https:"
-      ? "wss://localhost:8080"
-      : "ws://localhost:8080");
-  return `${wsBase}/ws/${roomId}`;
-}
-
-export function getSSEUrl(roomId: string, playerId: string, playerName: string): string {
-  return `${API_URL}/sse/${roomId}?playerId=${encodeURIComponent(playerId)}&playerName=${encodeURIComponent(playerName)}`;
-}
-
-export function getActionUrl(roomId: string, playerId: string): string {
-  return `${API_URL}/rooms/${roomId}/action?playerId=${encodeURIComponent(playerId)}`;
+export async function getRoom(roomId: string): Promise<{ id: string; name: string } | null> {
+  const { data } = await supabase
+    .from("rooms")
+    .select("id, name")
+    .eq("id", roomId)
+    .single();
+  return data;
 }
