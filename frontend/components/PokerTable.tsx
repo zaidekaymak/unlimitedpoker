@@ -284,7 +284,7 @@ export function PokerTable({
   return (
     <div
       className="relative w-full mx-auto select-none"
-      style={{ maxWidth: 900, aspectRatio: "3/2" }}
+      style={{ maxWidth: 900, aspectRatio: "3/2", overflow: "visible" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) setActivePickerId(null);
       }}
@@ -307,21 +307,17 @@ export function PokerTable({
         <div className="absolute rounded-full" style={{ inset: 6, border: "2px solid rgba(255,255,255,0.06)" }} />
       </div>
 
-      {/* Emoji particles — rendered in table container for correct z-index & visibility */}
+      {/* Emoji particles */}
       {localParticles.map((p) => (
-        <span
-          key={p.uid}
-          style={{
-            position: "absolute",
-            left: `${p.targetX}%`,
-            top: `${p.targetY}%`,
-            fontSize: "2rem",
-            pointerEvents: "none",
-            zIndex: 100,
-            animation: "emoji-throw 2.1s ease-out forwards",
-            ...({ "--dx": `${p.dx}px`, "--dy": `${p.dy}px` } as React.CSSProperties),
-          }}
-        >
+        <span key={p.uid} style={{ position: "absolute", left: `${p.targetX}%`, top: `${p.targetY}%`, fontSize: "2rem", pointerEvents: "none", zIndex: 100, animation: `emoji-throw-${p.uid} 2.1s ease-out forwards` }}>
+          <style>{`
+            @keyframes emoji-throw-${p.uid} {
+              0%   { opacity:.9; transform:translate(calc(-50% + ${p.dx}px),calc(-50% + ${p.dy}px)) scale(.5); }
+              55%  { opacity:1;  transform:translate(-50%,-50%) scale(1.4); }
+              75%  { opacity:1;  transform:translate(-50%,calc(-50% - 10px)) scale(1.05); }
+              100% { opacity:0;  transform:translate(-50%,calc(-50% - 85px)) scale(1.6); }
+            }
+          `}</style>
           {p.emoji}
         </span>
       ))}
@@ -397,9 +393,6 @@ export function PokerTable({
               onClick={() => togglePicker(player.id)}
               title={isMe ? player.name : `${player.name} — emoji fırlat`}
             >
-              {player.isAdmin && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-sm leading-none">👑</span>
-              )}
               <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 text-center max-w-[68px] truncate leading-tight">
                 {player.name}
               </span>
@@ -414,9 +407,6 @@ export function PokerTable({
                       <span className="bg-gray-100 dark:bg-gray-700 text-gray-400 w-full h-full rounded flex items-center justify-center">—</span>
                     )}
                   </div>
-                  {!isMe && (
-                    <span className="text-[9px] text-gray-400 dark:text-gray-500 leading-none">🎯 fırlat</span>
-                  )}
                 </>
               )}
             </div>
