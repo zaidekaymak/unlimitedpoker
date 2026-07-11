@@ -217,6 +217,41 @@ interface LocalParticle {
   dy: number;
 }
 
+function EmojiParticle({ particle: p }: { particle: LocalParticle }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.animate(
+      [
+        { opacity: 0.9, transform: `translate(calc(-50% + ${p.dx}px), calc(-50% + ${p.dy}px)) scale(0.5)` },
+        { opacity: 1,   transform: `translate(-50%, -50%) scale(1.4)`,                   offset: 0.55 },
+        { opacity: 1,   transform: `translate(-50%, calc(-50% - 10px)) scale(1.05)`,     offset: 0.75 },
+        { opacity: 0,   transform: `translate(-50%, calc(-50% - 85px)) scale(1.6)` },
+      ],
+      { duration: 2100, easing: "ease-out", fill: "forwards" }
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <span
+      ref={ref}
+      style={{
+        position: "absolute",
+        left: `${p.targetX}%`,
+        top: `${p.targetY}%`,
+        fontSize: "2rem",
+        pointerEvents: "none",
+        zIndex: 100,
+        opacity: 0,
+      }}
+    >
+      {p.emoji}
+    </span>
+  );
+}
+
 let particleUid = 0;
 
 export function PokerTable({
@@ -307,24 +342,9 @@ export function PokerTable({
         <div className="absolute rounded-full" style={{ inset: 6, border: "2px solid rgba(255,255,255,0.06)" }} />
       </div>
 
-      {/* Emoji particle keyframes — style block ayrı, span içinde değil */}
-      {localParticles.length > 0 && (
-        <style>{localParticles.map((p) => `
-          @keyframes emoji-throw-${p.uid} {
-            0%   { opacity:.9; transform:translate(calc(-50% + ${p.dx}px),calc(-50% + ${p.dy}px)) scale(.5); }
-            55%  { opacity:1;  transform:translate(-50%,-50%) scale(1.4); }
-            75%  { opacity:1;  transform:translate(-50%,calc(-50% - 10px)) scale(1.05); }
-            100% { opacity:0;  transform:translate(-50%,calc(-50% - 85px)) scale(1.6); }
-          }
-        `).join("")}</style>
-      )}
+      {/* Emoji particles — Web Animations API (CSP-safe, no inline style injection) */}
       {localParticles.map((p) => (
-        <span
-          key={p.uid}
-          style={{ position: "absolute", left: `${p.targetX}%`, top: `${p.targetY}%`, fontSize: "2rem", pointerEvents: "none", zIndex: 100, animation: `emoji-throw-${p.uid} 2.1s ease-out forwards` }}
-        >
-          {p.emoji}
-        </span>
+        <EmojiParticle key={p.uid} particle={p} />
       ))}
 
       {/* Center content */}
