@@ -37,7 +37,7 @@ export function usePokerRoom(
       roomId;
 
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
     });
 
     socketRef.current = socket;
