@@ -313,6 +313,7 @@ interface LocalParticle {
 }
 
 function EmojiParticle({ particle: p }: { particle: LocalParticle }) {
+  const isText = /^[A-ZÇĞİÖŞÜa-zçğışöü\s?!]+$/.test(p.emoji);
   // step 0 → başlangıç pozisyonu (uzakta), step 1 → hedefe uç, step 2 → yukarı kaybol
   const [step, setStep] = useState<0 | 1 | 2>(0);
 
@@ -344,7 +345,10 @@ function EmojiParticle({ particle: p }: { particle: LocalParticle }) {
         position: "absolute",
         left: `${p.targetX}%`,
         top: `${p.targetY}%`,
-        fontSize: "2rem",
+        fontSize: isText ? "0.85rem" : "2rem",
+        fontWeight: isText ? 700 : undefined,
+        color: isText ? "#ef4444" : undefined,
+        whiteSpace: "nowrap",
         pointerEvents: "none",
         zIndex: 100,
         transform: transforms[step],
@@ -526,7 +530,7 @@ export function PokerTable({
             {/* Emoji picker */}
             {showPicker && (
               <div
-                className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 flex flex-wrap gap-1 rounded-2xl shadow-xl px-3 py-2 z-40 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
+                className={`absolute left-1/2 -translate-x-1/2 flex flex-wrap gap-1 rounded-2xl shadow-xl px-3 py-2 z-40 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 ${y < 50 ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{ width: 280, maxHeight: 200, overflowY: "auto" }}
                 onClick={(e) => e.stopPropagation()}
               >
