@@ -104,7 +104,18 @@ export function PokerTable({
           >
             {/* Floating emoji particles */}
             {myParticles.map((particle) => (
-              <span key={particle.id} className="emoji-particle">
+              <span
+                key={particle.id}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "-8px",
+                  fontSize: "1.8rem",
+                  pointerEvents: "none",
+                  zIndex: 60,
+                  animation: "emoji-float-up 1.5s ease-out forwards",
+                }}
+              >
                 {particle.emoji}
               </span>
             ))}
@@ -112,14 +123,18 @@ export function PokerTable({
             {/* Emoji picker */}
             {showPicker && (
               <div
-                className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 flex gap-1 rounded-full shadow-xl px-3 py-1.5 z-20 border border-gray-200 dark:border-gray-600 whitespace-nowrap bg-white dark:bg-gray-800"
+                className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 flex gap-1 rounded-full shadow-xl px-3 py-1.5 z-40 border border-gray-200 dark:border-gray-600 whitespace-nowrap bg-white dark:bg-gray-800"
+                onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex gap-1">
                   {EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
                       className="text-xl hover:scale-125 transition-transform leading-none"
-                      onClick={() => handleEmojiClick(player.id, emoji)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEmojiClick(player.id, emoji);
+                      }}
                     >
                       {emoji}
                     </button>
