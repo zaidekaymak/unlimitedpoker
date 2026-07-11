@@ -70,7 +70,7 @@ export function usePokerRoom(
   useEffect(() => {
     unmounted.current = false;
 
-    function removePlayer() {
+    function deletePlayerFromDB() {
       // keepalive: tarayıcı kapanırken bile isteği tamamla
       fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/players?id=eq.${playerId}`,
@@ -83,11 +83,9 @@ export function usePokerRoom(
           keepalive: true,
         }
       );
-      sessionStorage.removeItem(`player_${roomId}`);
-      sessionStorage.removeItem(`playerName_${roomId}`);
     }
 
-    window.addEventListener("beforeunload", removePlayer);
+    window.addEventListener("beforeunload", deletePlayerFromDB);
 
     // Register/upsert self as player then load full state
     supabase
@@ -178,11 +176,9 @@ export function usePokerRoom(
     channelRef.current = channel;
 
     return () => {
-      window.removeEventListener("beforeunload", removePlayer);
+      window.removeEventListener("beforeunload", deletePlayerFromDB);
       unmounted.current = true;
       channel.unsubscribe();
-      // Uygulama içi navigasyonda da player'ı sil
-      removePlayer();
     };
   }, [roomId, playerId, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
