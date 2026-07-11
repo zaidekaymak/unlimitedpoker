@@ -168,6 +168,9 @@ export function usePokerRoom(
           });
         }
       )
+      .on("broadcast", { event: "sync" }, () => {
+        if (!unmounted.current) loadState();
+      })
       .on("broadcast", { event: "emoji" }, ({ payload }: { payload: { targetId: string; emoji: string } }) => {
         spawnEmoji(payload.targetId, payload.emoji);
       })
@@ -180,10 +183,10 @@ export function usePokerRoom(
 
     channelRef.current = channel;
 
-    // Polling fallback: Realtime olayları gelmediyse 3sn'de bir taze veri çek
+    // Polling fallback: broadcast gelmediyse 30sn'de bir taze veri çek
     const pollInterval = setInterval(() => {
       if (!unmounted.current) loadState();
-    }, 3000);
+    }, 30000);
 
     // Tab tekrar görünür olunca anında güncelle
     function handleVisibilityChange() {
@@ -215,12 +218,15 @@ export function usePokerRoom(
       if (players && players.length > 0 && players.every((p) => p.has_voted)) {
         await supabase.from("rooms").update({ revealed: true }).eq("id", roomId);
       }
+
+      channelRef.current?.send({ type: "broadcast", event: "sync", payload: {} });
     },
     [roomId, playerId]
   );
 
   const sendReveal = useCallback(async () => {
     await supabase.from("rooms").update({ revealed: true }).eq("id", roomId);
+    channelRef.current?.send({ type: "broadcast", event: "sync", payload: {} });
   }, [roomId]);
 
   const sendReset = useCallback(async () => {
@@ -233,10 +239,10 @@ export function usePokerRoom(
       }
       return { ...prev, players, votes: null, revealed: false };
     });
-    // Persist to DB (triggers Realtime for other clients)
     await supabase.from("votes").delete().eq("room_id", roomId);
     await supabase.from("players").update({ has_voted: false }).eq("room_id", roomId);
     await supabase.from("rooms").update({ revealed: false }).eq("id", roomId);
+    channelRef.current?.send({ type: "broadcast", event: "sync", payload: {} });
   }, [roomId]);
 
   const sendEmoji = useCallback(
