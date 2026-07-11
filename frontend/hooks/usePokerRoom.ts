@@ -171,12 +171,30 @@ export function usePokerRoom(
       .on("broadcast", { event: "emoji" }, ({ payload }: { payload: { targetId: string; emoji: string } }) => {
         spawnEmoji(payload.targetId, payload.emoji);
       })
-      .subscribe();
+      .subscribe((status: string) => {
+        // Subscription başarısız olursa state'i yeniden yükle
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          if (!unmounted.current) loadState();
+        }
+      });
 
     channelRef.current = channel;
 
+    // Polling fallback: Realtime olayları gelmediyse 3sn'de bir taze veri çek
+    const pollInterval = setInterval(() => {
+      if (!unmounted.current) loadState();
+    }, 3000);
+
+    // Tab tekrar görünür olunca anında güncelle
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && !unmounted.current) loadState();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       window.removeEventListener("beforeunload", deletePlayerFromDB);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(pollInterval);
       unmounted.current = true;
       channel.unsubscribe();
     };
