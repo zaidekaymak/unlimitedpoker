@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Player, EmojiEvent } from "@/lib/types";
 import { FIBONACCI } from "@/lib/constants";
 
 const EMOJIS = ["🎉", "😂", "👏", "🤔", "🙈", "🔥", "💯", "👍"];
+const CONFETTI_EMOJIS = ["🎉", "🎊", "🥳", "⭐", "✨", "🎈", "🙌", "💥"];
 
 function cardColor(value: string) {
   const n = parseInt(value);
@@ -14,13 +15,17 @@ function cardColor(value: string) {
   return        { text: "#d97706", border: "#fcd34d" };
 }
 
-function PlayingCard({ value }: { value: string }) {
+function PlayingCard({ value, size = "md" }: { value: string; size?: "sm" | "md" }) {
   const { text, border } = cardColor(value);
   const isLong = value.length > 2;
+  const w = size === "sm" ? 32 : 38;
+  const h = size === "sm" ? 46 : 54;
+  const centerSize = size === "sm" ? (isLong ? "0.85rem" : "1rem") : (isLong ? "1rem" : "1.25rem");
+  const cornerSize = size === "sm" ? "0.45rem" : (isLong ? "0.5rem" : "0.6rem");
   return (
     <div
       style={{
-        width: 38, height: 54,
+        width: w, height: h,
         background: "#fff",
         border: `2px solid ${border}`,
         borderRadius: 6,
@@ -32,16 +37,113 @@ function PlayingCard({ value }: { value: string }) {
         justifyContent: "center",
       }}
     >
-      <span style={{ position: "absolute", top: 2, left: 4, fontSize: isLong ? "0.5rem" : "0.6rem", fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif" }}>
+      <span style={{ position: "absolute", top: 2, left: 3, fontSize: cornerSize, fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif" }}>
         {value}
       </span>
-      <span style={{ fontSize: isLong ? "1rem" : "1.25rem", fontWeight: 900, color: text, fontFamily: "serif", lineHeight: 1 }}>
+      <span style={{ fontSize: centerSize, fontWeight: 900, color: text, fontFamily: "serif", lineHeight: 1 }}>
         {value}
       </span>
-      <span style={{ position: "absolute", bottom: 2, right: 4, fontSize: isLong ? "0.5rem" : "0.6rem", fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif", transform: "rotate(180deg)" }}>
+      <span style={{ position: "absolute", bottom: 2, right: 3, fontSize: cornerSize, fontWeight: 800, color: text, lineHeight: 1, fontFamily: "serif", transform: "rotate(180deg)" }}>
         {value}
       </span>
     </div>
+  );
+}
+
+function Confetti() {
+  const [items] = useState(() =>
+    Array.from({ length: 14 }, (_, i) => ({
+      id: i,
+      emoji: CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)],
+      left: `${Math.random() * 90 + 5}%`,
+      delay: `${Math.random() * 0.6}s`,
+      size: `${Math.random() * 1.2 + 1.2}rem`,
+    }))
+  );
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden z-50">
+      {items.map((item) => (
+        <span
+          key={item.id}
+          className="absolute bottom-0"
+          style={{
+            left: item.left,
+            animationDelay: item.delay,
+            fontSize: item.size,
+            animation: "confetti-up 2.4s ease-out forwards",
+          }}
+        >
+          {item.emoji}
+        </span>
+      ))}
+      <style>{`
+        @keyframes confetti-up {
+          0%   { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(-100vh) scale(0.5); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function TableRevealResults({
+  votes,
+}: {
+  votes: Record<string, string>;
+  players: Record<string, Player>;
+}) {
+  const entries = Object.entries(votes);
+  const numeric = entries.map(([, v]) => parseFloat(v)).filter((n) => !isNaN(n));
+  const average =
+    numeric.length > 0
+      ? (numeric.reduce((a, b) => a + b, 0) / numeric.length).toFixed(1)
+      : null;
+  const allSame = numeric.length > 1 && numeric.every((n) => n === numeric[0]);
+
+  const [showConfetti, setShowConfetti] = useState(false);
+  useEffect(() => {
+    if (allSame) {
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 2600);
+      return () => clearTimeout(t);
+    }
+  }, [allSame]);
+
+  return (
+    <>
+      {showConfetti && <Confetti />}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        {/* All vote cards spread */}
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: 380 }}>
+          {entries.map(([pid, value]) => (
+            <PlayingCard key={pid} value={value} size="sm" />
+          ))}
+        </div>
+
+        {/* Vote count */}
+        <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.7rem", margin: 0, letterSpacing: "0.04em" }}>
+          {entries.length} kişi oyladı
+        </p>
+
+        {/* Average */}
+        {average && (
+          <div style={{ textAlign: "center", lineHeight: 1 }}>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.6rem", margin: "0 0 3px 0", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Ortalama
+            </p>
+            <p style={{ color: "#fff", fontSize: "2.2rem", fontWeight: 900, margin: 0, fontFamily: "serif", textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+              {average}
+            </p>
+          </div>
+        )}
+
+        {allSame && (
+          <p style={{ color: "#86efac", fontSize: "0.72rem", fontWeight: 700, margin: 0, letterSpacing: "0.04em" }}>
+            Konsensüs!
+          </p>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -57,7 +159,7 @@ function TableCardDeck({
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
       <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.7rem", letterSpacing: "0.05em", margin: 0 }}>
-        {hasVoted ? "Oyunuz alındı — diğerleri oylasın" : "Kartınızı seçin"}
+        {hasVoted ? "Oyunuz alındı — değiştirmek için tekrar seçin" : "Kartınızı seçin"}
       </p>
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: 420 }}>
         {FIBONACCI.map((value) => {
@@ -65,25 +167,22 @@ function TableCardDeck({
           return (
             <button
               key={value}
-              onClick={() => !hasVoted && onVote(value)}
+              onClick={() => onVote(value)}
               style={{
-                width: 42,
-                height: 60,
+                width: 42, height: 60,
                 borderRadius: 7,
                 border: isSelected ? "2.5px solid #818cf8" : "2px solid rgba(255,255,255,0.45)",
                 background: isSelected ? "#e0e7ff" : "rgba(255,255,255,0.88)",
                 color: isSelected ? "#3730a3" : "#374151",
                 fontWeight: 800,
                 fontSize: "1.05rem",
-                cursor: hasVoted ? "default" : "pointer",
+                cursor: "pointer",
                 transform: isSelected ? "translateY(-10px) scale(1.08)" : "translateY(0) scale(1)",
-                boxShadow: isSelected
-                  ? "0 10px 24px rgba(0,0,0,0.35)"
-                  : "0 3px 8px rgba(0,0,0,0.22)",
+                boxShadow: isSelected ? "0 10px 24px rgba(0,0,0,0.35)" : "0 3px 8px rgba(0,0,0,0.22)",
                 transition: "all 0.15s ease",
                 fontFamily: "serif",
                 outline: "none",
-                opacity: hasVoted && !isSelected ? 0.55 : 1,
+                opacity: 1,
               }}
             >
               {value}
@@ -131,6 +230,8 @@ export function PokerTable({
     setActivePickerId(null);
   }
 
+  const showResults = revealed && votes && Object.keys(votes).length > 0;
+
   return (
     <div
       className="relative w-full mx-auto select-none"
@@ -152,27 +253,27 @@ export function PokerTable({
       >
         <div
           className="absolute inset-0 rounded-full opacity-10"
-          style={{
-            backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)",
-          }}
+          style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)" }}
         />
         <div className="absolute rounded-full" style={{ inset: 6, border: "2px solid rgba(255,255,255,0.06)" }} />
       </div>
 
-      {/* Center content — card deck (not revealed) */}
-      {!revealed && (
-        <div
-          style={{
-            position: "absolute",
-            left: "50%", top: "52%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 5,
-            pointerEvents: "auto",
-          }}
-        >
+      {/* Center content */}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%", top: "52%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 5,
+          pointerEvents: "auto",
+        }}
+      >
+        {showResults ? (
+          <TableRevealResults votes={votes!} players={players} />
+        ) : (
           <TableCardDeck selectedValue={selectedValue} hasVoted={hasVoted} onVote={onVote} />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Players around the table */}
       {playerList.map((player, i) => {

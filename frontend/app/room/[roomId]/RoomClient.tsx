@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { usePokerRoom } from "@/hooks/usePokerRoom";
-import { VoteResults } from "@/components/VoteResults";
 import { AdminControls } from "@/components/AdminControls";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { PokerTable } from "@/components/PokerTable";
@@ -74,13 +73,6 @@ export function RoomClient({ roomId, roomName, playerId, playerName }: Props) {
           />
         ) : (
           <div className="text-gray-400 text-sm text-center py-16">Bağlanılıyor...</div>
-        )}
-
-        {/* Oy sonuçları — sadece reveal sonrası */}
-        {room?.revealed && room.votes && Object.keys(room.votes).length > 0 && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md p-6 border border-gray-200 dark:border-gray-700">
-            <VoteResults votes={room.votes} players={room.players} />
-          </div>
         )}
 
         {room && (
