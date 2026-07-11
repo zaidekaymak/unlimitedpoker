@@ -98,6 +98,7 @@ const EMOJIS = [
   "TAM İSABET",
   "SANA NE",
   "EFSANE",
+  "KARGOM GELDİ",
 ];
 const CONFETTI_EMOJIS = ["🎉", "🎊", "🥳", "⭐", "✨", "🎈", "🙌", "💥"];
 
